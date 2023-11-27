@@ -31,3 +31,25 @@ The middle two (`Observable` and `QuantumState`) are where most of the work need
 See the files `src/__density_matrices.jl` and `src/__renyi_divergence.jl`
     for a skeleton of what needs to be done
     (or at least as much of it as my foresight allows).
+
+## Getting Started
+
+In principle, if you have Julia installed,
+    it should be able to automatically locate all additional dependencies and install them
+    when you first precompile the package code.
+This claim can be corroborated if you can execute the following commands without error:
+
+1. Clone this repository, eg. via `git clone https://<the repository url>`
+2. Change your working directory to the project directory now on your computer.
+3. Start a Julia REPL, via the command `julia`.
+4. Enter Julia's "Pkg" mode, by tapping the  `]` key.
+5. Activate the project environment, via the command `activate .`.
+6. Try to download all dependencies, via the command `instantiate`.
+7. Try to precompile the package source code, via the command `precompile`.
+8. Back out of "Pkg" mode by tapping the backspace key.
+9. Try to run the demo script, via the command `include("demo.jl")`.
+
+If you expect everything to work,
+    you can skip steps 6 and 7,
+    since all that stuff happens when the project package gets imported in the demo script,
+    but if something goes wrong, it's helpful to keep track of where.

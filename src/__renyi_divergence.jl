@@ -24,61 +24,60 @@ struct MaximalRenyiDivergence{F<:AbstractFloat}
     nH::Int
     nV::Int
 
-    # TODO: nV is determined by ρk, so an internal constructor is appropriate.
+    function MaximalRenyiDivergence(ρk::AbstractMatrix, nH::Int)
+        F = real(eltype(ρk))
+        NV = size(ρk,1)             # SIZE OF HILBERT SPACE
+        nV = round(Int, log2(NV))   # NUMBER OF QUBITS
+        return new{real(eltype(ρk))}(convert(Matrix{Complex{F}}, ρk), nH, nV)
+    end
 end
 
-ADAPT.typeof_energy(::RenyiDivergence{F}) where {F} = F
-
-function MaximalRenyiDivergence(ρ::DensityMatrix)
-    #= TODO:
-        Calculate ρk = inv(ρ).
-
-        Wait what do you do if ρ is not full rank?
-        I guess pseudo-inverse makes sense for density matrices
-            but does that affect the interpretation of the equations???
-
-        Anyway, I don't imagine we use this for thermal states,
-            since it is easier to construct ρk ~= exp(H) directly.
-    =#
-end
-
-#= TODO: We could consider a convenience constructor taking Hamiltonian,
-    which calculates ρk ~= exp(-H) then calls internal constructor.
-
-    But then we'd have to specify a standard form for the Hamiltonian,
-        and there's no need for that. The script can handle it, I say.
-=#
+ADAPT.typeof_energy(::MaximalRenyiDivergence{F}) where {F} = F
 
 ##########################################################################################
 
 function ADAPT.evaluate(
     D::MaximalRenyiDivergence,
-    σ::QuantumState,
+    σ::ADAPT.QuantumState,
 )
     #= TODO:
         Calculate log(Tr(σ²ρ⁻¹))
+        * Strictly speaking, if optimization is rewritten to use only gradient,
+            this function may not be needed for the algorithm.
+            But we'll certainly want it anyway.
     =#
+    return 0.0
 end
 
 function ADAPT.partial(
     k::Int,
-    ansatz::AbstractAnsatz,
+    ansatz::ADAPT.AbstractAnsatz,
     D::MaximalRenyiDivergence,
-    σ0::DensityMatrix,
+    σ0::ADAPT.QuantumState,
 )
     #= TODO:
         Evaluate σ = U σ0 U' by evolving σ0 with ansatz
+        * As Jim pointed out, σ can just be a statevector on visible and hidden nodes...
         Construct Hₖ
         Evaluate Eqn 8 from Kieferova 2021.
+
+        * As Carlos pointed out, this inevitably involves computing σV,
+            which should certainly be its own function.
+        * As Jim pointed out, there should be a `gradient` function
+                computing all partials simultaneously,
+                enabling shared calculations such as σV.
+            Kyle thought he already had that, but it looks like he did not.
+            He will make it in short order.
     =#
+    return 0.0
 end
 
 function ADAPT.calculate_score(
-    ansatz::AbstractAnsatz,
-    ::AdaptProtocol,
-    G::Generator,
+    ansatz::ADAPT.AbstractAnsatz,
+    ::ADAPT.AdaptProtocol,
+    G::ADAPT.Generator,
     D::MaximalRenyiDivergence,
-    σ0::DensityMatrix,
+    σ0::ADAPT.QuantumState,
 )
     #= TODO:
         I haven't thought about how to implement this.
@@ -92,4 +91,5 @@ function ADAPT.calculate_score(
             though I could wish for a more elegant solution that doesn't involve deepcopy.
 
     =#
+    return 0.0
 end

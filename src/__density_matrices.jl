@@ -73,13 +73,14 @@ That said, (almost) every occurrence of `ρ` would need to be replaced by `ρ.ma
 """
 DensityMatrix{F<:AbstractFloat} = Matrix{Complex{F}}
 
-import ADAPT.MyPauliOperators
-import ADAPT.MyPauliOperators: SparseKetBasis
-import ADAPT.MyPauliOperators: AbstractPauli, FixedPhasePauli, ScaledPauliVector, PauliSum
+import ADAPT
+import ADAPT.Basics: MyPauliOperators
+import ADAPT.Basics.MyPauliOperators: SparseKetBasis
+import ADAPT.Basics.MyPauliOperators: AbstractPauli, FixedPhasePauli, ScaledPauliVector, PauliSum
 PauliOperators = MyPauliOperators
 #= TODO @Kyle:
-    Replace `ADAPT.MyPauliOperators` with `PauliOperators`
-    once `ADAPT.MyPauliOperators` extension is absorbed into `PauliOperators` package.
+    Replace `ADAPT.Basics.MyPauliOperators` with `PauliOperators`
+    once `ADAPT.Basics.MyPauliOperators` extension is absorbed into `PauliOperators` package.
 =#
 
 AnyPauli = Union{AbstractPauli, PauliSum, ScaledPauliVector}

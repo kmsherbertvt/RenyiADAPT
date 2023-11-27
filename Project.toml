@@ -2,3 +2,9 @@ name = "RenyiADAPT"
 uuid = "b300f36c-3fc2-4c0c-82e3-668084ac986c"
 authors = ["kmsherbertvt <kyle.sherbert@vt.edu>"]
 version = "0.1.0"
+
+[deps]
+ADAPT = "cf1f529f-af3f-4d7a-b5f1-0e7d3fdd5852"
+BlockDavidson = "b4c031f8-e7c9-4879-896c-063a10ff8103"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+PauliOperators = "be646426-f34c-4536-b1d4-a45a9633e6db"
