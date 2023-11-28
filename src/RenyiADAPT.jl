@@ -1,7 +1,11 @@
 module RenyiADAPT
+    _not_implemented_default = "Method not implemented for these arguments"
+    _density_matrix_evolution_error = "Density matrix evolution not implemented"
+    NotImplementedError(msg::String=_not_implemented_default) = error(msg)
 
-    # include("__density_matrices.jl")
-    # export DensityMatrix
+    include("__density_matrices.jl")
+    export DensityMatrix
+    export partial_trace, purity, ispure, von_neumann_entropy
     #=
     Jim pointed out that evolving density matrices is a bit redundant
         as long as our reference state is a pure state on visible and hidden units.
