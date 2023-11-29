@@ -9,6 +9,7 @@ using Test
 =#
 for filename in (
     "density_matrix",
+    "renyi_divergence",
 )
     name = replace(filename, "_" => " ") |> titlecase
     @testset "$name" begin
