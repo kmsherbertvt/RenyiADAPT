@@ -2,7 +2,7 @@
 
 julia_version = "1.9.3"
 manifest_format = "2.0"
-project_hash = "cc63ddeb115800fa4aea8ff0ff4d26bad8324ae1"
+project_hash = "6652a8fba3fae7f5ce044a95378bc14bd3c0f040"
 
 [[deps.ADAPT]]
 deps = ["BlockDavidson", "LinearAlgebra", "Optim", "PauliOperators"]
@@ -294,6 +294,11 @@ git-tree-sha1 = "31e996f0a15c7b280ba9f76636b3ff9e2ae58c9a"
 uuid = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 version = "0.21.4"
 
+[[deps.LRUCache]]
+git-tree-sha1 = "d36130483e3b6e4cd88d81633b596563264f15db"
+uuid = "8ac3fa9e-de4c-5943-b1dc-09c6b5f20637"
+version = "1.5.0"
+
 [[deps.LazilyInitializedFields]]
 git-tree-sha1 = "8f7f3cabab0fd1800699663533b6d5cb3fc0e612"
 uuid = "0e77f7df-68c5-4e49-93ce-4cd80f5598bf"
@@ -449,6 +454,12 @@ git-tree-sha1 = "dfdf5519f235516220579f949664f1bf44e741c5"
 uuid = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
 version = "1.6.3"
 
+[[deps.PackageExtensionCompat]]
+git-tree-sha1 = "fb28e33b8a95c4cee25ce296c817d89cc2e53518"
+uuid = "65ce6f38-6b18-4e1d-a461-8949797d7930"
+version = "1.0.2"
+weakdeps = ["Requires", "TOML"]
+
 [[deps.Parameters]]
 deps = ["OrderedCollections", "UnPack"]
 git-tree-sha1 = "34c0e9ad262e5f7fc75b10a9952ca7692cfc5fbe"
@@ -597,6 +608,24 @@ git-tree-sha1 = "1d77abd07f617c4868c33d4f5b9e1dbb2643c9cf"
 uuid = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 version = "0.34.2"
 
+[[deps.Strided]]
+deps = ["LinearAlgebra", "StridedViews", "TupleTools"]
+git-tree-sha1 = "40c69be0e1b72ee2f42923b7d1ff13e0b04e675c"
+uuid = "5e0ebb24-38b0-5f93-81fe-25c709ecae67"
+version = "2.0.4"
+
+[[deps.StridedViews]]
+deps = ["LinearAlgebra", "PackageExtensionCompat"]
+git-tree-sha1 = "cf857ff7de76f39e5daef6d032e8a74279ddff6a"
+uuid = "4db3bf67-4bd7-4b4e-b153-31dc3fb37143"
+version = "0.2.1"
+
+    [deps.StridedViews.extensions]
+    StridedViewsCUDAExt = "CUDA"
+
+    [deps.StridedViews.weakdeps]
+    CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+
 [[deps.SuiteSparse]]
 deps = ["Libdl", "LinearAlgebra", "Serialization", "SparseArrays"]
 uuid = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
@@ -616,9 +645,29 @@ deps = ["ArgTools", "SHA"]
 uuid = "a4e569a6-e804-4fa4-b0f3-eef7a1d5b13e"
 version = "1.10.0"
 
+[[deps.TensorOperations]]
+deps = ["LRUCache", "LinearAlgebra", "PackageExtensionCompat", "Strided", "StridedViews", "TupleTools", "VectorInterface"]
+git-tree-sha1 = "7d57d433a869147e63ed10c18c487e5deda97592"
+uuid = "6aa20fa7-93e2-5fca-9bc0-fbd0db3c71a2"
+version = "4.0.7"
+
+    [deps.TensorOperations.extensions]
+    TensorOperationsChainRulesCoreExt = "ChainRulesCore"
+    TensorOperationscuTENSORExt = ["cuTENSOR", "CUDA"]
+
+    [deps.TensorOperations.weakdeps]
+    CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+    ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
+    cuTENSOR = "011b41b2-24ef-40a8-b3eb-fa098493e9e1"
+
 [[deps.Test]]
 deps = ["InteractiveUtils", "Logging", "Random", "Serialization"]
 uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[[deps.TupleTools]]
+git-tree-sha1 = "155515ed4c4236db30049ac1495e2969cc06be9d"
+uuid = "9d95972d-f1c8-5527-a6e0-b4b365fa01f6"
+version = "1.4.3"
 
 [[deps.UUIDs]]
 deps = ["Random", "SHA"]
@@ -631,6 +680,12 @@ version = "1.0.2"
 
 [[deps.Unicode]]
 uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
+
+[[deps.VectorInterface]]
+deps = ["LinearAlgebra"]
+git-tree-sha1 = "ecc747f33d2cb2c7ae73e1346e1b24e338f96012"
+uuid = "409d34a3-91d5-4945-b6ec-7529ddf182d8"
+version = "0.4.2"
 
 [[deps.Zlib_jll]]
 deps = ["Libdl"]

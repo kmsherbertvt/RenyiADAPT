@@ -73,6 +73,8 @@ That said, (almost) every occurrence of `ρ` would need to be replaced by `ρ.ma
 """
 DensityMatrix{F<:AbstractFloat} = Matrix{Complex{F}}
 
+import TensorOperations: tensortrace
+
 import ADAPT
 import ADAPT.Basics: MyPauliOperators
 import ADAPT.Basics.MyPauliOperators: SparseKetBasis
@@ -84,6 +86,9 @@ PauliOperators = MyPauliOperators
 =#
 
 AnyPauli = Union{AbstractPauli, PauliSum, ScaledPauliVector}
+
+ispure(::ADAPT.QuantumState) = true
+ispure(::DensityMatrix) = false
 
 function ADAPT.evolve_state!(
     G::AnyPauli,
@@ -101,6 +106,7 @@ function ADAPT.evolve_state!(
         As a matter of style, should return ρ at the end,
             though it is not explictly mandated in the interface.
     =#
+    NotImplementedError(_density_matrix_evolution_error)
 end
 
 function ADAPT.evaluate(
@@ -115,6 +121,7 @@ function ADAPT.evaluate(
             (ie. without converting H to a matrix).
         Possibly `ρ` will need to be diagonalized.
     =#
+    NotImplementedError(_density_matrix_evolution_error)
 end
 
 function ADAPT.partial(
@@ -131,6 +138,7 @@ function ADAPT.partial(
         But someone should double-check me on that.
         And test it, of course...
     =#
+    NotImplementedError(_density_matrix_evolution_error)
 end
 
 function ADAPT.calculate_score(
@@ -146,4 +154,90 @@ function ADAPT.calculate_score(
         Construct [G,H]
         Evaluate Tr(ρ[G,H])
     =#
+    NotImplementedError(_density_matrix_evolution_error)
 end
+
+"""
+    partial_trace(ρ::DensityMatrix, nH::Int)
+
+Computes the partial trace of ρ, which is assumed to act on
+subsystems V ⊗ H, where V is the visible system and H is the
+hidden system of nH qubits.
+
+# Parameters
+- `ρ`: The full system whose subspace will be traced out
+- `nH`: The number of hidden qubits to remove
+
+# Returns
+- The partial trace of ρ, removing the last `nH` qubits
+"""
+function partial_trace(ρ::DensityMatrix, nH::Int)
+    nH >= 0 || throw(ArgumentError("Hidden qubits must be positive"))
+
+    # Treat the system as V ⊗ H, and trace out H
+    qubits = trunc(Int, log2(size(ρ, 1)))
+    nV = qubits - nH
+
+    if nH == 0
+        return ρ        
+    elseif nV == 0
+        return tr(ρ)
+    end
+
+    # Fixme: I'm not sure why the subsystems are in this order. I thought
+    # I should be able to reshape it to (V, H, V, H).
+    ρ = reshape(ρ, (2^nH, 2^nV, 2^nH, 2^nV))
+    return tensortrace(ρ, [1, -1, 1, -2])
+end
+
+"""
+    partial_trace(ρ::DensityMatrix, keep::Vector{Int})
+
+Computes the partial trace of ρ over a set of qubits. `keep` is the
+indices of the qubits to keep, with the others being traced out.
+
+# Parameters
+- `ρ`: The full system whose subspace will be traced out
+- `keep`: Set of visible qubit indices
+
+# Returns
+- The partial trace of ρ
+"""
+function partial_trace(ρ::DensityMatrix, keep::Vector{Int})
+    #=
+        Reshape ρ into (2, 2, 2, 2, ...), corresponding to
+        (q1, q2, q3, ..., q1, q2, q3...)
+    =#
+    qubits = trunc(Int, log2(size(ρ, 1)))
+    nV = length(keep)
+    nH = qubits - nV
+
+    if nH == 0
+        return ρ
+    elseif nV == 0
+        return tr(ρ)
+    end
+
+    ρ = reshape(ρ, fill(2, 2 * qubits)...)
+    remove = setdiff(1:qubits, keep)
+
+    #=
+        We'll use tensoroperations for partial trace.
+        For tracing out system 1, i,j,i,k -> 1,-1,1,-2
+    =#
+    IA = -1 .* collect(1:2*qubits)
+
+    # Assign duplicate positive indices to axes we want to trace
+    for i in remove
+        IA[i] = IA[i+qubits] = i
+    end
+
+    # Fixme: I'm not sure why I need to reverse IA to pass the tests.. but it passes.
+    ρ = tensortrace(ρ, reverse(IA))
+    ρ = reshape(ρ, (2^nV, 2^nV))
+    return ρ
+end
+
+realifclose(x::Complex) = (isapprox(imag(x), 0, atol=1e-9)) ? real(x) : x
+purity(ρ::DensityMatrix) = min(ρ^2 |> tr |> realifclose, 1)
+von_neumann_entropy(ρ::DensityMatrix) = -log(ρ * log(ρ))
