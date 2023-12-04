@@ -145,8 +145,13 @@ function ADAPT.calculate_scores(
     D::MaximalRenyiDivergence,
     ψ₀::QuantumState,
 )
-    # If our reference state is a ket, take the outer
-    # product of |ψ₀>. Then dispatch to our normal function
+    #= 
+        If our reference state is a ket, take the outer
+        product of |ψ₀>. Then dispatch to our normal function.
+        Because the bulk of the computation will be in the generator
+        multiplication, we don't need to care about evolving the state
+        first by Uk.
+    =#
     σ₀ = ψ₀ * ψ₀'
 
     return ADAPT.calculate_scores(ansatz, protocol, pool, D, σ₀)
@@ -160,7 +165,7 @@ function ADAPT.calculate_scores(
     σ₀::DensityMatrix,
 )
     # Construct unitary for our circuit
-    U = ADAPT.to_unitary(ansatz)
+    U = Matrix(size(σ₀, 1), ansatz)
     Ud = U'
 
     # Evolve the reference state, and calculate the partial trace to give our
@@ -171,7 +176,7 @@ function ADAPT.calculate_scores(
 
     # Define a closure function that computes the Renyi divergence for a
     # pool operator given the quantities we precomputed above.
-    pool_renyi_div = Hj -> U * Hj * Ud |>
+    pool_renyi_div = Hj -> U * (Hj * Ud) |>
                            x -> commutator(x, σ) |>
                            x -> partial_trace(x, D.nH) |>
                            x -> anticommutator(x, σv) |>
@@ -188,36 +193,37 @@ function ADAPT.calculate_scores(
     return realifclose.(scale .* grad)
 end
 
-function gradient(
+function ADAPT.gradient!(
+    grad::AbstractVector,
     ansatz::AbstractAnsatz,
-    ::AdaptProtocol,
     D::MaximalRenyiDivergence,
     ψ₀::QuantumState,
 )
-    #=
-        Fixme: Need implementation in ADAPT.jl
-        Could probably just implement evolve_unitary!(U, G, θ), then reuse that
-        to implement to_unitary. Something like..
-
-        function to_unitary(ansatz::AbstractAnsatz)
-            U = I
-            for (G, θ) in ansatz
-                evolve_unitary!(U, G, θ)
-            end
-            return U
-        end
-    =#
-    # The unitary implementing our circuit, ∏_{j = N → 1} e^{-iθj Gj}
-    Uk = ADAPT.to_unitary(ansatz)
-
-    #=
-        Evolve our state by reusing the unitary, then taking the outer product.
-        Because matrix-vector multiplication is O(n^2), while matrix-matrix is O(n^3),
-        first evolving then doing the outer product is faster than constructing σ₀ and
-        computing Uσ₀U†.
-    =#
-    ψ = Uk * ψ₀
+    # Do faster evolution with pure state, then calculate the gradient
+    Uk = Matrix(size(ψ₀, 1), ansatz)
+    ψ = Uk * ψ
     σ = ψ * ψ'
+    return gradient!(grad, ansatz, D, σ, Uk)
+end
+
+function ADAPT.gradient!(
+    grad::AbstractVector,
+    ansatz::AbstractAnsatz,
+    D::MaximalRenyiDivergence,
+    σ₀::DensityMatrix
+)
+    Uk = Matrix(size(σ₀, 1), ansatz)
+    σ = Uk * σ₀ * Uk'
+    return gradient!(grad, ansatz, D, σ, Uk)
+end
+
+function gradient!(
+    grad::AbstractVector,
+    ansatz::AbstractAnsatz,
+    D::MaximalRenyiDivergence,
+    σ::DensityMatrix,
+    Uk::Matrix
+)
     σv = partial_trace(σ, D.nH)
     scale = -im / tr(σv^2 * D.ρk)
 
@@ -234,26 +240,19 @@ function gradient(
             U_k = ∏_{j = k → 1} e^{-iθj Hj},
         allows us to reuse as many intermediate products as possible.
     =#
-    grad = zeros(ComplexF64, length(ansatz))
     for k in reverse(eachindex(ansatz))
         Gk, θk = ansatz[k]
 
-        # Fixme: This needs a function in ADAPT.jl
-        evolve_unitary!(Uk, Gk, -θk)
+        ADAPT.evolve_unitary!(Gk, -θk, Uk)
 
-        Hk = Uk' * Gk * Uk
-        grad[k] = renyi_div(Hk)
+        #=
+            Fixme: (PauliOperators)
+            Base.* is not defined for matrix * pauli
+            so we group the multiplication of Gk * Uk first which is defined.
+        =#
+        Hk = Uk' * (Gk * Uk)
+        grad[k] = scale * renyi_div(Hk)
     end
 
-    return realifclose.(scale .* grad)
-end
-
-function gradient(
-    ansatz::AbstractAnsatz,
-    ::AdaptProtocol,
-    D::MaximalRenyiDivergence,
-    σ₀::DensityMatrix,
-)
-    # Todo: density matrix evolution
-    NotImplementedError(_density_matrix_evolution_error)
+    return grad
 end
