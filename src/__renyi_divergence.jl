@@ -135,7 +135,12 @@ function ADAPT.partial(
     NotImplementedError(_density_matrix_evolution_error)
 end
 
+# Fixme: commutator(x, y) fails if one is a Pauli because they lack
+# right multiplication support. Workaround by casting to matrix. Didn't
+# implement for anticommutator because it always comes after a call to commutator
 commutator(x, y) = x*y - y*x
+commutator(x, y::AnyPauli) = commutator(x, Matrix(y))
+commutator(x::AnyPauli, y) = commutator(Matrix(x), y)
 anticommutator(x, y) = x*y + y*x
 
 function ADAPT.calculate_scores(
@@ -166,18 +171,16 @@ function ADAPT.calculate_scores(
 )
     # Construct unitary for our circuit
     U = Matrix(size(σ₀, 1), ansatz)
-    Ud = U'
 
     # Evolve the reference state, and calculate the partial trace to give our
     # visible model σv. Also calculate the denominator of the Renyi divergence
-    σ = U * σ₀ * Ud
+    σ = U * σ₀ * U'
     σv = partial_trace(σ, D.nH)
     scale = -im / tr(σv^2 * D.ρk)
 
     # Define a closure function that computes the Renyi divergence for a
     # pool operator given the quantities we precomputed above.
-    pool_renyi_div = Hj -> U * (Hj * Ud) |>
-                           x -> commutator(x, σ) |>
+    pool_renyi_div = Hj -> commutator(Hj, σ) |>
                            x -> partial_trace(x, D.nH) |>
                            x -> anticommutator(x, σv) |>
                            x -> tr(x * D.ρk)
@@ -217,6 +220,15 @@ function ADAPT.gradient!(
     return gradient!(grad, ansatz, D, σ, Uk)
 end
 
+function right_evolve_unitary!(G, θ, U)
+    # Fixme: Not sure if there's a better way to do this
+
+    # UA = (A†U†)†, A† = e^{-i(-θ)G}
+    ADAPT.evolve_unitary!(G, -θ, U')
+    U = U'
+    return U
+end
+
 function gradient!(
     grad::AbstractVector,
     ansatz::AbstractAnsatz,
@@ -233,17 +245,17 @@ function gradient!(
                       x -> tr(x * D.ρk)
 
     #=
-        Because Hk̃ = U_{k-1}† Hk U_{k-1}, we iterate in reverse order.
+        Because Hk̃ = U_{k+1} Hk U_{k+1}†, we iterate in forward order.
         Performing the operation
-            U_{k-1} = e^{+iθk Hk} U_k,
+            U_{k+1} = U_k e^{+iθk Hk},
         where
             U_k = ∏_{j = k → 1} e^{-iθj Hj},
         allows us to reuse as many intermediate products as possible.
     =#
-    for k in reverse(eachindex(ansatz))
+    for k in eachindex(ansatz)
         Gk, θk = ansatz[k]
 
-        ADAPT.evolve_unitary!(Gk, -θk, Uk)
+        Uk = right_evolve_unitary!(Gk, -θk, Uk)
 
         #=
             Fixme: (PauliOperators)
@@ -251,7 +263,7 @@ function gradient!(
             so we group the multiplication of Gk * Uk first which is defined.
         =#
         Hk = Uk' * (Gk * Uk)
-        grad[k] = scale * renyi_div(Hk)
+        grad[k] = realifclose(scale * renyi_div(Hk))
     end
 
     return grad
