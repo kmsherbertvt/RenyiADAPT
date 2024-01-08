@@ -81,8 +81,27 @@ function ADAPT.evaluate(
         For pure states, ρ^2 = ρ, and the trace becomes
         an expectation value
             log(<ψ|ρ⁻¹|ψ>)
+
+        TODO: Jim implemented the pure and mixed state versions as though
+                it was a pure or mixed state on just the visible nodes,
+                but in this function, the quantum state should be understood as the ansatz.
+            That includes visible and hidden nodes,
+                meaning we need to trace out the hidden nodes
+                when calculating the actual divergence.
+            This version with a pure state
+                (now understood as a pure state over visible and hidden nodes,
+                presumably a mixed state after tracing out the hidden nodes)
+                is now corrected, but due to laziness I'm delegating to Jim's version for mixed states.
+            Properly speaking, that version should be renamed to a different, private method,
+                since the ADAPT.evaluate method is explicitly for ansatze,
+                rather than intermediate calculations.
+            
     =#
-    return log(ψ' * D.ρk * ψ)
+    σ = ψ * ψ'
+    σV = partial_trace(σ, D.nH)
+        #= TODO: partial_trace is defined in __density_matrices.
+        I'd like it explicitly identified in this file, eg. by courtesy import. =#
+    return ADAPT.evaluate(D, σV)
 end
 
 """
@@ -100,6 +119,12 @@ function ADAPT.evaluate(
 )
     # Calculate log(Tr(σ²ρ⁻¹))
     return log(tr(σ^2 * D.ρk))
+    #= TODO: As noted above, this implementation assumes σ is defined over visible nodes;
+        the function should really take the whole ansatz,
+        defined over visible and hidden nodes.
+    We do need this implementation (in fact I use it above),
+        but it should have a different function name probably.
+    =#
 end
 
 function ADAPT.partial(
@@ -204,7 +229,7 @@ function ADAPT.gradient!(
 )
     # Do faster evolution with pure state, then calculate the gradient
     Uk = Matrix(size(ψ₀, 1), ansatz)
-    ψ = Uk * ψ
+    ψ = Uk * ψ₀
     σ = ψ * ψ'
     return gradient!(grad, ansatz, D, σ, Uk)
 end
@@ -262,7 +287,11 @@ function gradient!(
             Base.* is not defined for matrix * pauli
             so we group the multiplication of Gk * Uk first which is defined.
         =#
-        Hk = Uk' * (Gk * Uk)
+        Hk = Uk' * (Matrix(Gk) * Uk)
+            #= TODO: I don't think Gk * Uk *is* defined?
+                Brute-force casting to matrix for now,
+                    but I would need to think a bit about what the "right" solution is.
+            =#
         grad[k] = realifclose(scale * renyi_div(Hk))
     end
 
