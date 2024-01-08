@@ -135,7 +135,12 @@ function ADAPT.partial(
     NotImplementedError(_density_matrix_evolution_error)
 end
 
+# Fixme: commutator(x, y) fails if one is a Pauli because they lack
+# right multiplication support. Workaround by casting to matrix. Didn't
+# implement for anticommutator because it always comes after a call to commutator
 commutator(x, y) = x*y - y*x
+commutator(x, y::AnyPauli) = commutator(x, Matrix(y))
+commutator(x::AnyPauli, y) = commutator(Matrix(x), y)
 anticommutator(x, y) = x*y + y*x
 
 function ADAPT.calculate_scores(
@@ -145,8 +150,13 @@ function ADAPT.calculate_scores(
     D::MaximalRenyiDivergence,
     ψ₀::QuantumState,
 )
-    # If our reference state is a ket, take the outer
-    # product of |ψ₀>. Then dispatch to our normal function
+    #= 
+        If our reference state is a ket, take the outer
+        product of |ψ₀>. Then dispatch to our normal function.
+        Because the bulk of the computation will be in the generator
+        multiplication, we don't need to care about evolving the state
+        first by Uk.
+    =#
     σ₀ = ψ₀ * ψ₀'
 
     return ADAPT.calculate_scores(ansatz, protocol, pool, D, σ₀)
@@ -160,19 +170,17 @@ function ADAPT.calculate_scores(
     σ₀::DensityMatrix,
 )
     # Construct unitary for our circuit
-    U = ADAPT.to_unitary(ansatz)
-    Ud = U'
+    U = Matrix(size(σ₀, 1), ansatz)
 
     # Evolve the reference state, and calculate the partial trace to give our
     # visible model σv. Also calculate the denominator of the Renyi divergence
-    σ = U * σ₀ * Ud
+    σ = U * σ₀ * U'
     σv = partial_trace(σ, D.nH)
     scale = -im / tr(σv^2 * D.ρk)
 
     # Define a closure function that computes the Renyi divergence for a
     # pool operator given the quantities we precomputed above.
-    pool_renyi_div = Hj -> U * Hj * Ud |>
-                           x -> commutator(x, σ) |>
+    pool_renyi_div = Hj -> commutator(Hj, σ) |>
                            x -> partial_trace(x, D.nH) |>
                            x -> anticommutator(x, σv) |>
                            x -> tr(x * D.ρk)
@@ -188,36 +196,46 @@ function ADAPT.calculate_scores(
     return realifclose.(scale .* grad)
 end
 
-function gradient(
+function ADAPT.gradient!(
+    grad::AbstractVector,
     ansatz::AbstractAnsatz,
-    ::AdaptProtocol,
     D::MaximalRenyiDivergence,
     ψ₀::QuantumState,
 )
-    #=
-        Fixme: Need implementation in ADAPT.jl
-        Could probably just implement evolve_unitary!(U, G, θ), then reuse that
-        to implement to_unitary. Something like..
-
-        function to_unitary(ansatz::AbstractAnsatz)
-            U = I
-            for (G, θ) in ansatz
-                evolve_unitary!(U, G, θ)
-            end
-            return U
-        end
-    =#
-    # The unitary implementing our circuit, ∏_{j = N → 1} e^{-iθj Gj}
-    Uk = ADAPT.to_unitary(ansatz)
-
-    #=
-        Evolve our state by reusing the unitary, then taking the outer product.
-        Because matrix-vector multiplication is O(n^2), while matrix-matrix is O(n^3),
-        first evolving then doing the outer product is faster than constructing σ₀ and
-        computing Uσ₀U†.
-    =#
-    ψ = Uk * ψ₀
+    # Do faster evolution with pure state, then calculate the gradient
+    Uk = Matrix(size(ψ₀, 1), ansatz)
+    ψ = Uk * ψ
     σ = ψ * ψ'
+    return gradient!(grad, ansatz, D, σ, Uk)
+end
+
+function ADAPT.gradient!(
+    grad::AbstractVector,
+    ansatz::AbstractAnsatz,
+    D::MaximalRenyiDivergence,
+    σ₀::DensityMatrix
+)
+    Uk = Matrix(size(σ₀, 1), ansatz)
+    σ = Uk * σ₀ * Uk'
+    return gradient!(grad, ansatz, D, σ, Uk)
+end
+
+function right_evolve_unitary!(G, θ, U)
+    # Fixme: Not sure if there's a better way to do this
+
+    # UA = (A†U†)†, A† = e^{-i(-θ)G}
+    ADAPT.evolve_unitary!(G, -θ, U')
+    U = U'
+    return U
+end
+
+function gradient!(
+    grad::AbstractVector,
+    ansatz::AbstractAnsatz,
+    D::MaximalRenyiDivergence,
+    σ::DensityMatrix,
+    Uk::Matrix
+)
     σv = partial_trace(σ, D.nH)
     scale = -im / tr(σv^2 * D.ρk)
 
@@ -227,33 +245,26 @@ function gradient(
                       x -> tr(x * D.ρk)
 
     #=
-        Because Hk̃ = U_{k-1}† Hk U_{k-1}, we iterate in reverse order.
+        Because Hk̃ = U_{k+1} Hk U_{k+1}†, we iterate in forward order.
         Performing the operation
-            U_{k-1} = e^{+iθk Hk} U_k,
+            U_{k+1} = U_k e^{+iθk Hk},
         where
             U_k = ∏_{j = k → 1} e^{-iθj Hj},
         allows us to reuse as many intermediate products as possible.
     =#
-    grad = zeros(ComplexF64, length(ansatz))
-    for k in reverse(eachindex(ansatz))
+    for k in eachindex(ansatz)
         Gk, θk = ansatz[k]
 
-        # Fixme: This needs a function in ADAPT.jl
-        evolve_unitary!(Uk, Gk, -θk)
+        Uk = right_evolve_unitary!(Gk, -θk, Uk)
 
-        Hk = Uk' * Gk * Uk
-        grad[k] = renyi_div(Hk)
+        #=
+            Fixme: (PauliOperators)
+            Base.* is not defined for matrix * pauli
+            so we group the multiplication of Gk * Uk first which is defined.
+        =#
+        Hk = Uk' * (Gk * Uk)
+        grad[k] = realifclose(scale * renyi_div(Hk))
     end
 
-    return realifclose.(scale .* grad)
-end
-
-function gradient(
-    ansatz::AbstractAnsatz,
-    ::AdaptProtocol,
-    D::MaximalRenyiDivergence,
-    σ₀::DensityMatrix,
-)
-    # Todo: density matrix evolution
-    NotImplementedError(_density_matrix_evolution_error)
+    return grad
 end
