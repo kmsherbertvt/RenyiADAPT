@@ -1,5 +1,6 @@
 using RenyiADAPT
 import RenyiADAPT: ADAPT
+import RenyiADAPT.ADAPT.PauliOperators: Pauli, ScaledPauli, ScaledPauliVector
 import Random
 
 include("__utils.jl")
@@ -40,7 +41,7 @@ allnonzero(v::Vector{R}) where R <: Real = .!isapprox.(v, 0, atol=1e-9) |> all
     @test_throws UndefKeywordError MaximalRenyiDivergence(ρ)
 end
 
-@testset "Parameter Gradient (Pauli, |0>)" begin
+@testset "Parameter Gradient (X5, |0>)" begin
     # Start with a reference state of |00000>
     n = 5
     ψ₀ = zeros(ComplexF64, 2^n)
@@ -77,6 +78,34 @@ end
 
     @test length(grad) == 1
     @test allzero(grad)
+end
+
+@testset "Parameter Gradient ((X+Z)h, |0>)" begin
+    # Start with a reference state |00000>
+    n = 5
+    ψ₀ = zeros(ComplexF64, 2^n)
+    ψ₀[1] = 1
+    σ₀ = ψ₀ * ψ₀'
+
+    # Now we'd like to learn a random mixed state since the pool gradient of
+    # a maximally mixed state is 0 for these conditions
+    ρ = random_mixed_state(3)
+    D = MaximalRenyiDivergence(ρ, nH=2)
+
+    pool = [
+        # Operator consisting of X on the visible qubits and XX+ZZ on the hidden qubits
+        Pauli("ZZZXX") + Pauli("XXXZZ")
+    ]
+
+    for op in pool
+        ansatz = ADAPT.Ansatz(Float64, pool)
+        push!(ansatz, op => 0.0)
+
+        grad = ADAPT.gradient(ansatz, D, σ₀)
+
+        @test length(grad) == 1
+        @test allnonzero(grad)
+    end
 end
 
 @testset "Pool Gradient (Pauli, |0>)" begin
@@ -190,6 +219,47 @@ end
     @test somenonzero(grad)
 end
 
+@testset "Test Evolution ((X+Z)h, |0>)" begin
+    # Start with a reference state |00000>
+    n = 5
+    ψ₀ = zeros(ComplexF64, 2^n)
+    ψ₀[1] = 1
+    σ₀ = ψ₀ * ψ₀'
+
+    # Now we'd like to learn a random mixed state since the pool gradient of
+    # a maximally mixed state is 0 for these conditions
+    ρ = random_mixed_state(3)
+    D = MaximalRenyiDivergence(ρ, nH=2)
+
+    pool = [
+        Pauli("ZZZXX") + Pauli("XXXZZ")
+    ]
+
+    ansatz = ADAPT.Ansatz(Float64, pool)
+    for op in pool
+        push!(ansatz, op => 0.0)
+    end
+
+    # Check that our gradient is nonzero
+    grad = ADAPT.gradient(ansatz, D, σ₀)
+
+    @test length(grad) == 1
+    @test allnonzero(grad)
+
+    starting_renyi_div = ADAPT.evaluate(ansatz, D, ψ₀)
+
+    trace = ADAPT.Trace()
+    adapt = ADAPT.VANILLA
+    vqe = ADAPT.OptimOptimizer(:BFGS; g_tol=1e-6)
+    callbacks = ADAPT.AbstractCallback[]
+
+    ADAPT.optimize!(ansatz, trace, vqe, D, ψ₀, callbacks)
+
+    final_renyi_div = ADAPT.evaluate(ansatz, D, ψ₀)
+
+    @test final_renyi_div < starting_renyi_div
+end
+
 state_types = (:product, :pure, :mixed)
 operator_types = (:tensor_v, :tensor_h, :product)
 
@@ -237,25 +307,25 @@ fancy_operator_names = Dict(
     :product => "P"
 )
 
-for (state_type, operator_type) in Iterators.product(state_types, operator_types)
-    testset_name = "Pool Gradient (σ = $state_type, G = $operator_type)"
-    fancy_testset_name = (
-        "Pool Gradient (σ = $state_type, "
-        * "G = $(fancy_operator_names[operator_type]))"
-    )
-    @testset "$testset_name" begin
-        σ = get_state(state_type)
-        pool = get_operator_pool(operator_type)
-        ρ = maximally_mixed_state(3)
-        D = MaximalRenyiDivergence(ρ, nH=2)
+# for (state_type, operator_type) in Iterators.product(state_types, operator_types)
+#     testset_name = "Pool Gradient (σ = $state_type, G = $operator_type)"
+#     fancy_testset_name = (
+#         "Pool Gradient (σ = $state_type, "
+#         * "G = $(fancy_operator_names[operator_type]))"
+#     )
+#     @testset "$testset_name" begin
+#         σ = get_state(state_type)
+#         pool = get_operator_pool(operator_type)
+#         ρ = maximally_mixed_state(3)
+#         D = MaximalRenyiDivergence(ρ, nH=2)
 
-        # Brand new, empty ansatz
-        ansatz = ADAPT.Ansatz(Float64, pool)
+#         # Brand new, empty ansatz
+#         ansatz = ADAPT.Ansatz(Float64, pool)
 
-        # Calculate the gradient, and check its properties. If we have all 0s,
-        # this doesn't bode well for RenyiADAPT
-        grad = ADAPT.calculate_scores(ansatz, ADAPT.VANILLA, pool, D, σ)
-        frac_nonzero = 1 - (sum(isapprox.(grad, 0, atol=1e-9)) / length(grad))
-        println("$fancy_testset_name → $frac_nonzero")
-    end
-end
+#         # Calculate the gradient, and check its properties. If we have all 0s,
+#         # this doesn't bode well for RenyiADAPT
+#         grad = ADAPT.calculate_scores(ansatz, ADAPT.VANILLA, pool, D, σ)
+#         frac_nonzero = 1 - (sum(isapprox.(grad, 0, atol=1e-9)) / length(grad))
+#         println("$fancy_testset_name → $frac_nonzero")
+#     end
+# end
