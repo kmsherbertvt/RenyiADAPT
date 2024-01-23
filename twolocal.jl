@@ -13,7 +13,7 @@ import PauliOperators: PauliSum, ScaledPauliVector, Pauli, ScaledPauli
 import PauliOperators: KetBitString, SparseKetBasis
 
 import LinearAlgebra
-import Random; Random.seed!(1111)
+import Random; Random.seed!(1234)
 import IterTools
 
 ##########################################################################################
@@ -155,15 +155,22 @@ vqe = ADAPT.OptimOptimizer(:BFGS; g_tol=1e-6)
 callbacks = [
     ADAPT.Callbacks.Tracer(:energy, :selected_index, :selected_score, :scores),
     ADAPT.Callbacks.ParameterTracer(),
-    ADAPT.Callbacks.Printer(:energy, :selected_generator, :selected_score),
+    # ADAPT.Callbacks.Printer(:energy, :selected_generator, :selected_score),
     ADAPT.Callbacks.ScoreStopper(1e-3),
-    ADAPT.Callbacks.ParameterStopper(1),
+    ADAPT.Callbacks.ParameterStopper(length(pool)), # Don't exceed expense of naive way.
 ]
 
 # RUN THE ADAPT ALGORITHM
 ansatz = ADAPT.Ansatz(Float64, pool)
 trace = ADAPT.Trace()
-ADAPT.run!(ansatz, trace, adapt, vqe, pool, D, ψREF, callbacks) # NOTE: Not cheap!
+println("Running ADAPT...")
+@time finished = ADAPT.run!(ansatz, trace, adapt, vqe, pool, D, ψREF, callbacks)
+#= NOTE: `finished` is true iff ADAPT converged.
+    (If not, the last optimization was probably too hard.
+    It may be that it just needs more iterations,
+        in which case simply calling run! again
+        will let the optimization pick up from where it left off.
+    But if the optimization needs so many iterations, something is probably wrong.) =#
 
 ψEND = ADAPT.evolve_state(ansatz, ψREF)
 σV = RenyiADAPT.partial_trace(ψEND * ψEND', nH)
@@ -181,7 +188,9 @@ end
 
 # RUN THE OPTIMIZATION ALGORITHM
 vqe_trace = ADAPT.Trace()
-ADAPT.optimize!(vqe_ansatz, vqe_trace, vqe, D, ψREF, callbacks) # NOTE: Not cheap!
+println("Running VQE with all operators...")
+@time result = ADAPT.optimize!(vqe_ansatz, vqe_trace, vqe, D, ψREF, callbacks)
+# NOTE: result contains the `Optim.OptimizationResult` from BFGS
 
 vqe_ψEND = ADAPT.evolve_state(vqe_ansatz, ψREF)
 vqe_σV = RenyiADAPT.partial_trace(vqe_ψEND * vqe_ψEND', nH)
@@ -199,7 +208,12 @@ tracedistance(ρ,σ) = LinearAlgebra.tr(abs.(ρ .- σ)) / 2
 fidelity(ρ,σ) = (ρ12=sqrt(ρ); real(LinearAlgebra.tr(sqrt(ρ12*σ*ρ12))))
 
 
-labels = ["ADAPT σV\t", "VQE σV\t\t", "I/N\t\t", "exp(-H)"]
+labels = [
+    "ADAPT σV ($(length(ansatz)) ops)",
+    "  VQE σV ($(length(vqe_ansatz)) ops)",
+    "I/N \t\t",
+    "exp(-H)",
+]
 println("  Metric"*"\t"*join(labels, "\t"))
 println("-"^100)
 states = [σV, vqe_σV, maximallymixedstate, ρ]
