@@ -199,7 +199,8 @@ vqe_σV = RenyiADAPT.partial_trace(vqe_ψEND * vqe_ψEND', nH)
 ##########################################################################################
 #= CONTRAST RESULTS =#
 
-# Construct the maximally mixed state for comparison purposes.
+# Construct a couple more states for comparison purposes.
+referencestate = RenyiADAPT.partial_trace(ψREF * ψREF', nH)
 maximallymixedstate = Matrix{ComplexF64}(LinearAlgebra.I, 1<<nV, 1<<nV) ./ (1<<nV)
 
 purity = RenyiADAPT.purity
@@ -211,12 +212,13 @@ fidelity(ρ,σ) = (ρ12=sqrt(ρ); real(LinearAlgebra.tr(sqrt(ρ12*σ*ρ12))))
 labels = [
     "ADAPT σV ($(length(ansatz)) ops)",
     "  VQE σV ($(length(vqe_ansatz)) ops)",
+    "From Reference\t",
     "I/N \t\t",
     "exp(-H)",
 ]
 println("  Metric"*"\t"*join(labels, "\t"))
-println("-"^100)
-states = [σV, vqe_σV, maximallymixedstate, ρ]
+println("-"^150)
+states = [σV, vqe_σV, referencestate, maximallymixedstate, ρ]
 println("  Purity"*"\t"*join((purity(σ) for σ in states), "\t"))
 println(" Entropy"*"\t"*join((entropy(σ) for σ in states), "\t"))
 println("Distance"*"\t"*join((tracedistance(ρ,σ) for σ in states), "\t"))
