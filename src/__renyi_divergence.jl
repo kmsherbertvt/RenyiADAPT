@@ -76,7 +76,7 @@ function ADAPT.evaluate(
     D::MaximalRenyiDivergence,
     ψ::QuantumState,
 )
-    #= 
+    #=
         Compute log(Tr(σ²̢ρ⁻¹))
         For pure states, ρ^2 = ρ, and the trace becomes
         an expectation value
@@ -95,7 +95,7 @@ function ADAPT.evaluate(
             Properly speaking, that version should be renamed to a different, private method,
                 since the ADAPT.evaluate method is explicitly for ansatze,
                 rather than intermediate calculations.
-            
+
     =#
     σ = ψ * ψ'
     σV = partial_trace(σ, D.nH)
@@ -118,7 +118,10 @@ function ADAPT.evaluate(
     σ::DensityMatrix
 )
     # Calculate log(Tr(σ²ρ⁻¹))
-    return log(tr(σ^2 * D.ρk))
+    return realifclose(log(tr(σ^2 * D.ρk)))
+    #= Following Jim's example, try to return all real values if possible.
+        If there is an error and we get imaginary divergences, this will propagate
+        downstream. =#
     #= TODO: As noted above, this implementation assumes σ is defined over visible nodes;
         the function should really take the whole ansatz,
         defined over visible and hidden nodes.
@@ -175,7 +178,7 @@ function ADAPT.calculate_scores(
     D::MaximalRenyiDivergence,
     ψ₀::QuantumState,
 )
-    #= 
+    #=
         If our reference state is a ket, take the outer
         product of |ψ₀>. Then dispatch to our normal function.
         Because the bulk of the computation will be in the generator

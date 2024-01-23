@@ -179,7 +179,7 @@ function partial_trace(ρ::DensityMatrix, nH::Int)
     nV = qubits - nH
 
     if nH == 0
-        return ρ        
+        return ρ
     elseif nV == 0
         return tr(ρ)
     end
@@ -240,4 +240,4 @@ end
 
 realifclose(x::Complex) = (isapprox(imag(x), 0, atol=1e-9)) ? real(x) : x
 purity(ρ::DensityMatrix) = min(ρ^2 |> tr |> realifclose, 1)
-von_neumann_entropy(ρ::DensityMatrix) = -log(ρ * log(ρ))
+von_neumann_entropy(ρ::DensityMatrix) = realifclose(-tr(ρ * log(ρ)))
