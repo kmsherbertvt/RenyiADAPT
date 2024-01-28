@@ -257,7 +257,16 @@ function right_evolve_unitary!(G, θ, U)
     return U
 end
 
-function gradient!(
+#= NOTE: Jim wrote the following auxiliary function.
+    Near as I can tell,
+        it correctly implements the gradient expression defined in the paper,
+        but it does not match one produced by a finite difference.
+    I re-derived my own expression for the gradient,
+        and implemented that below, and it does match.
+    I *THINK* the expression in the paper is actually incomplete,
+        and maybe I even have an idea of how the mistake was made,
+        but of course the code behind the paper worked so I'm not 100% certain. =#
+function broken_gradient!(
     grad::AbstractVector,
     ansatz::AbstractAnsatz,
     D::MaximalRenyiDivergence,
@@ -296,6 +305,71 @@ function gradient!(
                     but I would need to think a bit about what the "right" solution is.
             =#
         grad[k] = realifclose(scale * renyi_div(Hk))
+    end
+
+    return grad
+end
+
+
+#= TODO: This re-write hopefully fixes the broken gradient for our two-local pool,
+        but I'm pretty sure a more complicated fix is needed for generic pool operators
+        which may involve sums of non-commuting terms.
+    The ADAPT.jl library has such a fix already implemented for simple observables;
+        we need only adapt it if we ever choose to use such a pool. =#
+function gradient!(
+    grad::AbstractVector,
+    ansatz::AbstractAnsatz,
+    D::MaximalRenyiDivergence,
+    σ::DensityMatrix,               # expectation: the totally-evolved σ on the whole space.
+    Uk::Matrix                      # expectation: the unitary for the whole ansatz.
+)
+    σv = partial_trace(σ, D.nH)
+    scale = -im / tr(σv^2 * D.ρk)   # -im comes from constant in ∂k_σv, divisor from ∂ log
+
+    renyi_div = ∂k_σv -> tr(anticommutator(∂k_σv, σv) * D.ρk)
+
+    #= I'd like to partially evolve σ rather than H,
+        and I want to start with the reference state.
+        But I don't want to change anything Jim did except in this method,
+            and that means I can't put the reference state in the arguments.
+        So, uh, I'm going to get σREF through the silliest of ways. =#
+    σk = Uk' * σ * Uk
+
+    for k in eachindex(ansatz)
+        Gk, θk = ansatz[k]
+
+        ################################################
+        # CONSTRUCT ∂k_σv AND FILL IN GRADIENT
+
+        Hk = Matrix(Gk) # Pauli*Matrix not implemented, so cast Pauli to matrix for now
+        commuted = commutator(Hk, σk)
+        conjugated = Uk * commuted * Uk'
+        ∂k_σv = partial_trace(conjugated, D.nH)
+
+        grad[k] = realifclose(scale * renyi_div(∂k_σv))
+
+        ################################################
+        # MOVE THE exp(-iθG) FOR THIS STEP FROM Uk TO σk
+
+        #= TODO: The evolution could happen on a statevector initialized to reference;
+                    we'd have to re-convert it to a density matrix after each step.
+                For now, the following is a lazy (but even more expensive) way
+                    to evolve the density matrix. =#
+        Ek = exp(-im*θk*Hk)
+        σk = Ek * σk * Ek'
+
+        Uk = Uk * Ek'
+        #= TODO: At a glance the right_evolve_unitary! function looks like it should work,
+            but I get the wrong answer if I replace the above line with
+
+            Uk = right_evolve_unitary!(Gk, -θk, Uk)
+
+            :(
+
+            Not taking the time to debug right now;
+                the problem could easily be in ether Jim's hack or my evolution.
+
+             =#
     end
 
     return grad
