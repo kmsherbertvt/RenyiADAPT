@@ -6,6 +6,7 @@ import LinearAlgebra: rank, tr, inv, pinv
 
 import ADAPT
 import ADAPT: AbstractAnsatz, AdaptProtocol, GeneratorList, QuantumState
+using TimerOutputs: @timeit
 
 Optional{T} = Union{T, Nothing}
 
@@ -197,31 +198,42 @@ function ADAPT.calculate_scores(
     D::MaximalRenyiDivergence,
     σ₀::DensityMatrix,
 )
-    # Construct unitary for our circuit
-    U = Matrix(size(σ₀, 1), ansatz)
+    @timeit "Pool Gradient" grad = begin
 
-    # Evolve the reference state, and calculate the partial trace to give our
-    # visible model σv. Also calculate the denominator of the Renyi divergence
-    σ = U * σ₀ * U'
-    σv = partial_trace(σ, D.nH)
-    scale = -im / tr(σv^2 * D.ρk)
+        # Construct unitary for our circuit
+        U = Matrix(size(σ₀, 1), ansatz)
 
-    # Define a closure function that computes the Renyi divergence for a
-    # pool operator given the quantities we precomputed above.
-    pool_renyi_div = Hj -> commutator(Hj, σ) |>
-                           x -> partial_trace(x, D.nH) |>
-                           x -> anticommutator(x, σv) |>
-                           x -> tr(x * D.ρk)
+        # Evolve the reference state, and calculate the partial trace to give our
+        # visible model σv. Also calculate the denominator of the Renyi divergence
+        σ = U * σ₀ * U'
+        σv = partial_trace(σ, D.nH)
+        scale = -im / tr(σv^2 * D.ρk)
 
-    # Todo: Possibly parallelize this?
-    grad = pool_renyi_div.(pool)
+        # Define a closure function that computes the Renyi divergence for a
+        # pool operator given the quantities we precomputed above.
+        pool_renyi_div = Hj -> commutator(Hj, σ) |>
+                            x -> partial_trace(x, D.nH) |>
+                            x -> anticommutator(x, σv) |>
+                            x -> tr(x * D.ρk)
 
-    #=
-        Scale the gradient and try to return all real values if possible.
-        If there is an error and we get imaginary gradients, this will propagate
-        downstream.
-    =#
-    return realifclose.(scale .* grad)
+        # Todo: Possibly parallelize this?
+        # grad = pool_renyi_div.(pool)
+        grad = zeros(ComplexF64, length(pool))
+        for (k, Hj) in enumerate(pool)
+            @timeit "Per operator" begin
+                grad[k] = pool_renyi_div(Hj)
+            end
+        end
+
+        #=
+            Scale the gradient and try to return all real values if possible.
+            If there is an error and we get imaginary gradients, this will propagate
+            downstream.
+        =#
+        realifclose.(scale .* grad)
+    end
+
+    return grad
 end
 
 function ADAPT.gradient!(
@@ -323,53 +335,57 @@ function gradient!(
     σ::DensityMatrix,               # expectation: the totally-evolved σ on the whole space.
     Uk::Matrix                      # expectation: the unitary for the whole ansatz.
 )
-    σv = partial_trace(σ, D.nH)
-    scale = -im / tr(σv^2 * D.ρk)   # -im comes from constant in ∂k_σv, divisor from ∂ log
+    @timeit "Ansatz gradient" begin
+        σv = partial_trace(σ, D.nH)
+        scale = -im / tr(σv^2 * D.ρk)   # -im comes from constant in ∂k_σv, divisor from ∂ log
 
-    renyi_div = ∂k_σv -> tr(anticommutator(∂k_σv, σv) * D.ρk)
+        renyi_div = ∂k_σv -> tr(anticommutator(∂k_σv, σv) * D.ρk)
 
-    #= I'd like to partially evolve σ rather than H,
-        and I want to start with the reference state.
-        But I don't want to change anything Jim did except in this method,
-            and that means I can't put the reference state in the arguments.
-        So, uh, I'm going to get σREF through the silliest of ways. =#
-    σk = Uk' * σ * Uk
+        #= I'd like to partially evolve σ rather than H,
+            and I want to start with the reference state.
+            But I don't want to change anything Jim did except in this method,
+                and that means I can't put the reference state in the arguments.
+            So, uh, I'm going to get σREF through the silliest of ways. =#
+        σk = Uk' * σ * Uk
 
-    for k in eachindex(ansatz)
-        Gk, θk = ansatz[k]
+        for k in eachindex(ansatz)
+            @timeit "Per Parameter" begin
+                Gk, θk = ansatz[k]
 
-        ################################################
-        # CONSTRUCT ∂k_σv AND FILL IN GRADIENT
+                ################################################
+                # CONSTRUCT ∂k_σv AND FILL IN GRADIENT
 
-        Hk = Matrix(Gk) # Pauli*Matrix not implemented, so cast Pauli to matrix for now
-        commuted = commutator(Hk, σk)
-        conjugated = Uk * commuted * Uk'
-        ∂k_σv = partial_trace(conjugated, D.nH)
+                Hk = Matrix(Gk) # Pauli*Matrix not implemented, so cast Pauli to matrix for now
+                commuted = commutator(Hk, σk)
+                conjugated = Uk * commuted * Uk'
+                ∂k_σv = partial_trace(conjugated, D.nH)
 
-        grad[k] = realifclose(scale * renyi_div(∂k_σv))
+                grad[k] = realifclose(scale * renyi_div(∂k_σv))
 
-        ################################################
-        # MOVE THE exp(-iθG) FOR THIS STEP FROM Uk TO σk
+                ################################################
+                # MOVE THE exp(-iθG) FOR THIS STEP FROM Uk TO σk
 
-        #= TODO: The evolution could happen on a statevector initialized to reference;
-                    we'd have to re-convert it to a density matrix after each step.
-                For now, the following is a lazy (but even more expensive) way
-                    to evolve the density matrix. =#
-        Ek = exp(-im*θk*Hk)
-        σk = Ek * σk * Ek'
+                #= TODO: The evolution could happen on a statevector initialized to reference;
+                            we'd have to re-convert it to a density matrix after each step.
+                        For now, the following is a lazy (but even more expensive) way
+                            to evolve the density matrix. =#
+                Ek = exp(-im*θk*Hk)
+                σk = Ek * σk * Ek'
 
-        Uk = Uk * Ek'
-        #= TODO: At a glance the right_evolve_unitary! function looks like it should work,
-            but I get the wrong answer if I replace the above line with
+                Uk = Uk * Ek'
+                #= TODO: At a glance the right_evolve_unitary! function looks like it should work,
+                    but I get the wrong answer if I replace the above line with
 
-            Uk = right_evolve_unitary!(Gk, -θk, Uk)
+                    Uk = right_evolve_unitary!(Gk, -θk, Uk)
 
-            :(
+                    :(
 
-            Not taking the time to debug right now;
-                the problem could easily be in ether Jim's hack or my evolution.
+                    Not taking the time to debug right now;
+                        the problem could easily be in ether Jim's hack or my evolution.
 
-             =#
+                    =#
+            end
+        end
     end
 
     return grad
