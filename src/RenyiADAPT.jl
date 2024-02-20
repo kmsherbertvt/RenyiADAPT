@@ -19,6 +19,14 @@ module RenyiADAPT
     include("__renyi_divergence.jl")
     export MaximalRenyiDivergence
 
+    # Implementing evaluation and gradient of the trace distance.
+    include("__trace_distance.jl")
+    export TraceDistance
+
+    # Implementing evaluation and gradient of the trace distance.
+    include("__infidelity.jl")
+    export Infidelity
+
     # Implementing an optimization that uses only the gradient of the loss function.
     include("__gradient_descent.jl")
     export GradientDescent  # NOTE: the name of the protocol is a placeholder...

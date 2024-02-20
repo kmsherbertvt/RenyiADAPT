@@ -1,9 +1,8 @@
-#= Generate an arbitrary Hamiltonian with 1- and 2-local terms,
-    then let Renyi-ADAPT prepare the thermal state using a 1- and 2-local pool.
+#= twolocal.jl, modified to use trace distance instead of Renyi divergence.
 
-We will use a reference of |0..0⟩ rotated into a random entangling state,
-    by applying Ry(random angles) to each qubit,
-    followed by CNOTs between each hidden::visible pair.
+I do not recommend running this script;
+    the gradient (or perhaps just the finite difference?) is unstable;
+    linesearches take forever and the code takes an hour to complete a four-qubit run.
 
 =#
 
@@ -99,12 +98,8 @@ Hm = Matrix(H)              # NOTE: Not cheap!
 ρ = exp(-Hm)                # NOTE: Not cheap!
 ρ ./= LinearAlgebra.tr(ρ)
 
-# CALCULATE ρk ~= exp(H) (normalized), for the actual algorithm
-ρk = exp(Hm)                # NOTE: Not cheap!
-ρk ./= LinearAlgebra.tr(ρk)
-
-# PREPARE THE RENYI DIVERGENCE OBJECT
-D = RenyiADAPT.MaximalRenyiDivergence(ρk, nH)
+# PREPARE THE TRACE DISTANCE OBJECT
+D = RenyiADAPT.TraceDistance(ρ, nH)
 @assert nV == D.nV
 
 ##########################################################################################
@@ -158,14 +153,23 @@ callbacks = [
         :selected_index, :selected_score, :scores,
     ),
     ADAPT.Callbacks.ParameterTracer(),
-    # ADAPT.Callbacks.Printer(:energy, :selected_generator, :selected_score),
+    # ADAPT.Callbacks.Printer(:selected_score, :selected_generator),
     ADAPT.Callbacks.ScoreStopper(1e-3),
     ADAPT.Callbacks.ParameterStopper(length(pool)), # Don't exceed expense of naive way.
 ]
 
-# RUN THE ADAPT ALGORITHM
+# INITIALIZE ANSATZ AND TRACE
 ansatz = ADAPT.Ansatz(Float64, pool)
 trace = ADAPT.Trace()
+
+# # FOR TESTING: VALIDATE THAT ALL THESE ADAPT OBJECTS FIT TOGETHER CORRECTLY
+# display(ADAPT.validate(
+#     deepcopy(ansatz), adapt, vqe, pool[1:2], D, ψREF;
+#     evaluation=nothing,     # Trace distance not exactly linear, no matrix cast.
+#     gradient=1e-6,          # Finite difference, don't expect too much.
+# ))
+
+# RUN ADAPT
 println("Running ADAPT...")
 @time finished = ADAPT.run!(ansatz, trace, adapt, vqe, pool, D, ψREF, callbacks)
 #= NOTE: `finished` is true iff ADAPT converged.
@@ -175,6 +179,9 @@ println("Running ADAPT...")
         will let the optimization pick up from where it left off.
     But if the optimization needs so many iterations, something is probably wrong.) =#
 
+ψEND = ADAPT.evolve_state(ansatz, ψREF)
+σV = RenyiADAPT.partial_trace(ψEND * ψEND', nH)
+
 println("ADAPT Finished? $finished")
 println("Total iterations: $(last(trace[:iteration]))")
 totalf = sum(trace[:elapsed_f_calls][trace[:adaptation][2:end]])
@@ -182,16 +189,13 @@ finished || (totalf += last(trace[:elapsed_f_calls]))
 println("Total f calls: $totalf")
 println()
 
-ψEND = ADAPT.evolve_state(ansatz, ψREF)
-σV = RenyiADAPT.partial_trace(ψEND * ψEND', nH)
-
 ##########################################################################################
 #= RUN A VQE SIMPLY USING EVERY POSSIBLE POOL OPERATOR EXACTLY ONCE =#
 
 # INITIALIZE THE ANSATZ
 vqe_ansatz = ADAPT.Ansatz(Float64, pool)
 ADAPT.set_optimized!(vqe_ansatz, false)
-    # Empty ADPAT ansatze are implicitly optimized, but we'll be adding items manually.
+    # Empty ADAPT ansatze are implicitly optimized, but we'll be adding items manually.
 for op in pool
     push!(vqe_ansatz, op => 0.0)    # Reference is randomized, so no need to perturb?
 end
@@ -241,70 +245,10 @@ println("Fidelity"*"\t"*join((fidelity(ρ,σ) for σ in states), "\t"))
 println()
 
 
-##########################################################################################
-#= PLOTS =#
+#= TODO
 
-import Plots
+This cost function appears to be somehow unstable,
+    especially perhaps on operators acting only on hidden nodes?
+Linesearches take forever.
 
-# # ENERGY CONVERGENCE (BFGS Iterations)
-# plt = Plots.plot(;
-#     ylabel = "D - Final VQE Result",
-#     yscale = :log10,
-#     ylims = [1e-16, 1e2],
-#     yticks = 10.0 .^ (-16:2:2),
-#     xlabel = "BFGS Iterations",
-# )
-
-# x = trace[:iteration]
-# y = trace[:energy] .- last(trace[:energy])
-# Plots.plot!(plt, x, y; color=1, lw=2, label="ADAPT")
-
-# x = vqe_trace[:iteration]
-# y = vqe_trace[:energy] .- last(vqe_trace[:energy])
-# Plots.plot!(plt, x, y; color=2, lw=2, label="VQE")
-
-# Plots.vline!(plt, trace[:adaptation]; color=:black, ls=:dot, label=false)
-
-
-
-# ENERGY CONVERGENCE (Circuit evaluations)
-#= Roughly, the number of circuit evaluations for a single iteration might be estimated as
-    ( # of groups in each operator to measure) x ( # of distinct operators )
-We can probably take the complexity of the operators as constant throughout,
-    so we can estimate circuit evaluations as proportional to the # of distinct operators.
-There is one for each parameter in the ansatz, yes?
-So rather than plotting against # of iterations,
-    we should plot against # of iterations TIMES # of parameters. =#
-
-adapt_ce = deepcopy(trace[:elapsed_g_calls])    # Start with gradient evaluations.
-for adaptation in reverse(trace[:adaptation][2:end])    # Make it cumulative.
-    adapt_ce[adaptation+1:end] .+= adapt_ce[adaptation]
-end
-for ix in 2:length(trace[:adaptation])   # Now scale each adaptation by num params.
-    numparams = ix - 1
-    i = trace[:adaptation][ix-1]+1
-    j = trace[:adaptation][ix]
-    adapt_ce[i:j] .*= numparams
-end
-
-plt = Plots.plot(;
-    ylabel = "D - Final VQE Result",
-    yscale = :log10,
-    ylims = [1e-16, 1e2],
-    yticks = 10.0 .^ (-16:2:2),
-    xlabel = "BFGS Iterations x Parameters/Iteration",
-)
-
-x = adapt_ce
-y = trace[:energy] .- last(trace[:energy])
-Plots.plot!(plt, x, y; color=1, lw=2, label="ADAPT")
-
-x = vqe_trace[:elapsed_g_calls] .* length(vqe_ansatz)
-y = vqe_trace[:energy] .- last(vqe_trace[:energy])
-Plots.plot!(plt, x, y; color=2, lw=2, label="VQE")
-
-Plots.vline!(plt, adapt_ce[trace[:adaptation][2:end]]; color=:black, ls=:dot, label=false)
-
-
-
-Plots.gui()
+=#

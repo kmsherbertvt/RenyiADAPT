@@ -1,9 +1,4 @@
-#= Generate an arbitrary Hamiltonian with 1- and 2-local terms,
-    then let Renyi-ADAPT prepare the thermal state using a 1- and 2-local pool.
-
-We will use a reference of |0..0⟩ rotated into a random entangling state,
-    by applying Ry(random angles) to each qubit,
-    followed by CNOTs between each hidden::visible pair.
+#= twolocal.jl, modified to use infidelity instead of Renyi divergence.
 
 =#
 
@@ -99,12 +94,9 @@ Hm = Matrix(H)              # NOTE: Not cheap!
 ρ = exp(-Hm)                # NOTE: Not cheap!
 ρ ./= LinearAlgebra.tr(ρ)
 
-# CALCULATE ρk ~= exp(H) (normalized), for the actual algorithm
-ρk = exp(Hm)                # NOTE: Not cheap!
-ρk ./= LinearAlgebra.tr(ρk)
-
-# PREPARE THE RENYI DIVERGENCE OBJECT
-D = RenyiADAPT.MaximalRenyiDivergence(ρk, nH)
+# PREPARE THE TRACE DISTANCE OBJECT
+sqrtρ = sqrt(ρ)
+D = RenyiADAPT.Infidelity(sqrtρ, nH)
 @assert nV == D.nV
 
 ##########################################################################################
@@ -158,14 +150,24 @@ callbacks = [
         :selected_index, :selected_score, :scores,
     ),
     ADAPT.Callbacks.ParameterTracer(),
-    # ADAPT.Callbacks.Printer(:energy, :selected_generator, :selected_score),
+    # ADAPT.Callbacks.Printer(:selected_score, :selected_generator),
     ADAPT.Callbacks.ScoreStopper(1e-3),
     ADAPT.Callbacks.ParameterStopper(length(pool)), # Don't exceed expense of naive way.
 ]
 
-# RUN THE ADAPT ALGORITHM
+# INITIALIZE ANSATZ AND TRACE
 ansatz = ADAPT.Ansatz(Float64, pool)
 trace = ADAPT.Trace()
+
+# # FOR TESTING: VALIDATE THAT ALL THESE ADAPT OBJECTS FIT TOGETHER CORRECTLY
+# display(ADAPT.validate(
+#     deepcopy(ansatz), adapt, vqe, pool[1:2], D, ψREF;
+#     evaluation=nothing,     # Infidelity not exactly linear, no matrix cast.
+#     gradient=1e-6,          # Finite difference, don't expect too much.
+# ))
+# ansatz = ADAPT.Ansatz(Float64, pool)
+
+# RUN ADAPT
 println("Running ADAPT...")
 @time finished = ADAPT.run!(ansatz, trace, adapt, vqe, pool, D, ψREF, callbacks)
 #= NOTE: `finished` is true iff ADAPT converged.
@@ -191,7 +193,7 @@ println()
 # INITIALIZE THE ANSATZ
 vqe_ansatz = ADAPT.Ansatz(Float64, pool)
 ADAPT.set_optimized!(vqe_ansatz, false)
-    # Empty ADPAT ansatze are implicitly optimized, but we'll be adding items manually.
+    # Empty ADAPT ansatze are implicitly optimized, but we'll be adding items manually.
 for op in pool
     push!(vqe_ansatz, op => 0.0)    # Reference is randomized, so no need to perturb?
 end
