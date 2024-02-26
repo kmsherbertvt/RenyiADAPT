@@ -93,6 +93,9 @@ end
 for op in two_local_pool(nV)
     sum!(H, randn() * op)   # For now, the coefficient is a random number from N(μ=0,σ=1).
 end
+# NORMALIZE SO THE ENERGY SCALE DOESN'T CHANGE WITH SYSTEM SIZE
+Q = sum(abs2, values(H.ops))
+foreach(key -> H[key] /= √Q, keys(H))
 Hm = Matrix(H)              # NOTE: Not cheap!
 
 # CALCULATE ρ ~= exp(-H) (normalized), just for comparison
@@ -113,7 +116,6 @@ pool = vcat(
     one_local_pool(n),
     two_local_pool(n),
 )   # Well that was easy. Thanks, Karunya!
-
 
 
 ##########################################################################################
@@ -154,7 +156,7 @@ vqe = ADAPT.OptimOptimizer(:BFGS; g_tol=1e-6)
 # SELECT THE CALLBACKS
 callbacks = [
     ADAPT.Callbacks.Tracer(
-        :energy, :g_norm, :elapsed_f_calls, :elapsed_g_calls,
+        :energy, :g_norm, :elapsed_time, :elapsed_f_calls, :elapsed_g_calls,
         :selected_index, :selected_score, :scores,
     ),
     ADAPT.Callbacks.ParameterTracer(),
