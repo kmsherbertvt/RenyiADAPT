@@ -95,6 +95,9 @@ function createLossFunction(nV, nH)
     for op in two_local_pool(nV)
         sum!(H, randn() * op)   # For now, the coefficient is a random number from N(μ=0,σ=1).
     end
+    # NORMALIZE SO THE ENERGY SCALE DOESN'T CHANGE WITH SYSTEM SIZE
+    Q = sum(abs2, values(H.ops))
+    foreach(key -> H[key] /= √Q, keys(H))
     Hm = Matrix(H)              # NOTE: Not cheap!
 
     # CALCULATE ρ ~= exp(-H) (normalized), just for comparison
@@ -156,7 +159,7 @@ end
 ##########################################################################################
 #= RUN THE ADAPT ALGORITHM =#
 
-function run_adapt(nV, nH)
+function run_adapt(nV, nH; output=true)
     D, ρ = createLossFunction(nV, nH)
     ψREF = createReferenceState(nV, nH)
     pool = createPool(nV + nH)
@@ -167,12 +170,16 @@ function run_adapt(nV, nH)
 
     # SELECT THE CALLBACKS
     callbacks = [
-        ADAPT.Callbacks.Tracer(:energy, :selected_index, :selected_score, :scores),
+        ADAPT.Callbacks.Tracer(:energy, :selected_index, :selected_score, :scores, :g_norm),
         ADAPT.Callbacks.ParameterTracer(),
-        # ADAPT.Callbacks.Printer(:energy, :selected_generator, :selected_score),
         ADAPT.Callbacks.ScoreStopper(1e-3),
         ADAPT.Callbacks.ParameterStopper(length(pool)), # Don't exceed expense of naive way.
     ]
+
+    if output
+        cb = ADAPT.Callbacks.Printer(:energy, :selected_generator, :selected_score, :g_norm)
+        push!(callbacks, cb)
+    end
 
     # RUN THE ADAPT ALGORITHM
     ansatz = ADAPT.Ansatz(Float64, pool)
@@ -198,7 +205,7 @@ end
 
 function profile_adapt(nV, nH; output=true)
     # Get timer and final fidelity
-    to, fidelity_, finished = run_adapt(nV, nH)
+    to, fidelity_, finished = run_adapt(nV, nH, output=output)
 
     if output
         # Save results to text file

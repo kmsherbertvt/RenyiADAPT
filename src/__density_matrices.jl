@@ -238,6 +238,19 @@ function partial_trace(ρ::DensityMatrix, keep::Vector{Int})
     return ρ
 end
 
-realifclose(x::Complex) = (isapprox(imag(x), 0, atol=1e-9)) ? real(x) : x
+function realifclose(x::Complex; tol=1e-9)
+    if isapprox(imag(x), 0, atol=tol)
+        return real(x)
+    # Uses taylor expansion of atan(x) = x - O(x^3) to compute
+    # a relative tolerance between real and imaginary parts, assuming
+    # the original check failed
+    elseif isapprox(imag(x) / real(x), 0, atol=tol)
+        return real(x)
+    else
+        return x
+    end
+end
+
+# realifclose(x::Complex) = (isapprox(imag(x), 0, atol=1e-9)) ? real(x) : x
 purity(ρ::DensityMatrix) = min(ρ^2 |> tr |> realifclose, 1)
 von_neumann_entropy(ρ::DensityMatrix) = realifclose(-tr(ρ * log(ρ)))
