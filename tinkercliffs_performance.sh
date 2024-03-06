@@ -18,6 +18,9 @@ module load site/tinkercliffs/easybuild/setup
 module load Julia/1.9.3-linux-x86_64
 
 # Create environment
-julia --project=. -e "import Pkg; Pkg.instantiate()"
+# julia --project=. -e "import Pkg; Pkg.instantiate()"
+
+JULIA_NUM_THREADS=1
+OPENBLAS_NUM_THREADS=4
 
 julia --project=. performance.jl $SLURM_ARRAY_TASK_ID
