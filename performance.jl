@@ -160,8 +160,11 @@ end
 #= RUN THE ADAPT ALGORITHM =#
 
 function run_adapt(nV, nH; output=true)
+    output && println("Creating loss function and hamiltonian")
     D, ρ = createLossFunction(nV, nH)
+    output && println("Creating reference state")
     ψREF = createReferenceState(nV, nH)
+    output && println("Creating operator pool")
     pool = createPool(nV + nH)
 
     # SELECT THE PROTOCOLS
@@ -185,6 +188,7 @@ function run_adapt(nV, nH; output=true)
     ansatz = ADAPT.Ansatz(Float64, pool)
     trace = ADAPT.Trace()
 
+    output && println("Running ADAPT")
     TimerOutputs.reset_timer!()
     TimerOutputs.@timeit "RenyiADAPT" finished = ADAPT.run!(ansatz, trace, adapt, vqe, pool, D, ψREF, callbacks)
 
