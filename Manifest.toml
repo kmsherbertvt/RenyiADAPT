@@ -2,7 +2,7 @@
 
 julia_version = "1.9.4"
 manifest_format = "2.0"
-project_hash = "f7d325c4d7cbfdefb97711af2354ca7441b18cdd"
+project_hash = "2ceb2b5d2f4ebf180f0fa841eb5914483d98cbfd"
 
 [[deps.ADAPT]]
 deps = ["BlockDavidson", "KrylovKit", "LinearAlgebra", "Optim", "PauliOperators"]
@@ -404,6 +404,12 @@ version = "0.3.26"
 
 [[deps.Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
+
+[[deps.LoggingExtras]]
+deps = ["Dates", "Logging"]
+git-tree-sha1 = "c1dd6d7978c12545b4179fb6153b9250c96b0075"
+uuid = "e6f89c97-d47a-5376-807f-9c37f3926c36"
+version = "1.0.3"
 
 [[deps.MacroTools]]
 deps = ["Markdown", "Random"]

@@ -17,6 +17,16 @@ import Random; Random.seed!(1234)
 import IterTools
 import TimerOutputs
 
+using LoggingExtras, Dates
+
+const date_format = "yyyy-mm-dd HH:MM:SS"
+
+timestamp_logger(logger) = TransformerLogger(logger) do log
+  merge(log, (; message = "$(Dates.format(now(), date_format)) $(log.message)"))
+end
+
+ConsoleLogger(stdout, Logging.Info) |> timestamp_logger |> global_logger
+
 ##########################################################################################
 #= HELPFUL FUNCTIONS =#
 
@@ -90,10 +100,10 @@ function createLossFunction(nV, nH)
     # BUILD OUT THE PROBLEM HAMILTONIAN
     H = PauliSum(nV)
     for op in one_local_pool(nV)
-        sum!(H, randn() * op)   # For now, the coefficient is a random number from N(μ=0,σ=1).
+        sum!(H, randn() * op);   # For now, the coefficient is a random number from N(μ=0,σ=1).
     end
     for op in two_local_pool(nV)
-        sum!(H, randn() * op)   # For now, the coefficient is a random number from N(μ=0,σ=1).
+        sum!(H, randn() * op);   # For now, the coefficient is a random number from N(μ=0,σ=1).
     end
     # NORMALIZE SO THE ENERGY SCALE DOESN'T CHANGE WITH SYSTEM SIZE
     Q = sum(abs2, values(H.ops))
@@ -160,14 +170,18 @@ end
 #= RUN THE ADAPT ALGORITHM =#
 
 function run_adapt(nV, nH; output=true)
-    output && println("Creating loss function and hamiltonian")
+    level = output ? Logging.Debug : Logging.Info
+    ConsoleLogger(stdout, level) |> timestamp_logger |> global_logger
+
+    @debug "Creating loss function and hamiltonian"
     D, ρ = createLossFunction(nV, nH)
-    output && println("Creating reference state")
+    @debug "Creating reference state"
     ψREF = createReferenceState(nV, nH)
-    output && println("Creating operator pool")
+    @debug "Creating operator pool"
     pool = createPool(nV + nH)
 
     # SELECT THE PROTOCOLS
+    @debug "Initializing ADAPT"
     adapt = ADAPT.VANILLA
     vqe = ADAPT.OptimOptimizer(:BFGS; g_tol=1e-6)
 
@@ -188,9 +202,10 @@ function run_adapt(nV, nH; output=true)
     ansatz = ADAPT.Ansatz(Float64, pool)
     trace = ADAPT.Trace()
 
-    output && println("Running ADAPT")
+    @debug "Running ADAPT"
     TimerOutputs.reset_timer!()
     TimerOutputs.@timeit "RenyiADAPT" finished = ADAPT.run!(ansatz, trace, adapt, vqe, pool, D, ψREF, callbacks)
+    @debug "Finished adapt"
 
     to = TimerOutputs.get_defaulttimer()
     #= NOTE: `finished` is true iff ADAPT converged.
@@ -236,7 +251,10 @@ function main()
     nV = nH = parse(Int, ARGS[1])
 
     # Precompile the package
+    @info "Running on nV = nH = 1 to precompile the code"
     profile_adapt(1, 1, output=false)
+
+    @info "Running full size system"
     profile_adapt(nV, nH)
 end
 
