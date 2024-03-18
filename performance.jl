@@ -179,6 +179,7 @@ function run_adapt(nV, nH; output=true)
     ψREF = createReferenceState(nV, nH)
     @debug "Creating operator pool"
     pool = createPool(nV + nH)
+    flush(stdout)
 
     # SELECT THE PROTOCOLS
     @debug "Initializing ADAPT"
@@ -203,6 +204,7 @@ function run_adapt(nV, nH; output=true)
     trace = ADAPT.Trace()
 
     @debug "Running ADAPT"
+    flush(stdout)
     TimerOutputs.reset_timer!()
     TimerOutputs.@timeit "RenyiADAPT" finished = ADAPT.run!(ansatz, trace, adapt, vqe, pool, D, ψREF, callbacks)
     @debug "Finished adapt"
@@ -253,6 +255,7 @@ function main()
     # Precompile the package
     @info "Running on nV = nH = 1 to precompile the code"
     profile_adapt(1, 1, output=false)
+    flush(stdout)
 
     @info "Running full size system"
     profile_adapt(nV, nH)
