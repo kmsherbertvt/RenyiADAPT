@@ -31,4 +31,8 @@ module RenyiADAPT
     include("__gradient_descent.jl")
     export GradientDescent  # NOTE: the name of the protocol is a placeholder...
 
+    module Utils; include("__utils.jl"); end
+
+    module ThermalStatesExperiment; include("__thermalstatesexperiment.jl"); end
+
 end # module RenyiADAPT
