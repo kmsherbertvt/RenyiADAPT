@@ -24,8 +24,8 @@ Setup(enum, nV, nH, seed) = JOB.Params(
 )
 
 # GENERATE SOME DATA
-for nV in 1:3; for nH in 0:nV
-    setup = Setup("renyi", nV, nH, 1)
+for nV in 4:4; for nH in 0:nV
+    setup = Setup("overlap", nV, nH, 1)
     display(setup)
 
     ansatz, trace, adapt, vqe, pool, O, ψREF, callbacks = JOB.get_adapt(setup; run=true)

@@ -188,7 +188,7 @@ function init_adapt(setup::Params)
         setup.enum_method == "renyi" ?
             RenyiADAPT.MaximalRenyiDivergence(ρk, setup.nH) :
         setup.enum_method == "overlap" ?
-            RenyiADAPT.Infidelity(ρs, nH) :
+            RenyiADAPT.Infidelity(ρs, setup.nH) :
         error("Unsupported method enum")
     )
 

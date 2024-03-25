@@ -145,6 +145,8 @@ end
 #= A new kind of ADAPT.Callback.
 I'll probably add it to ADAPT.jl if it proves itself worthy here. =#
 
+import Serialization
+
 struct Serializer <: ADAPT.AbstractCallback
     ansatz_file::String
     trace_file::String
