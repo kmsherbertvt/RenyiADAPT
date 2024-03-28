@@ -3,6 +3,7 @@ import PauliOperators: PauliSum, ScaledPauliVector, Pauli, ScaledPauli, FixedPha
 import PauliOperators: KetBitString, SparseKetBasis
 
 import IterTools
+import LinearAlgebra
 
 function one_local_pool(n::Int64, axes=["I","X","Y","Z"])
     pool = ScaledPauliVector(n)

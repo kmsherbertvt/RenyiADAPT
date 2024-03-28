@@ -49,6 +49,7 @@ end
 """ A single row of a metric CSV. """
 struct Metrics
     numparams::Int          # Number of optimizable parameters in ADAPT ansatz.
+    numiters::Int           # Number of BFGS iterations to complete all optimizations.
     runtime::Float          # Number of seconds to complete all optimizations.
     purity::Float           # Purity of system register.
     entropy::Float          # vo Neumann entropy of system register.
@@ -78,13 +79,14 @@ function Metrics(trace, pool, ψREF, nH, ρ, ρs, a)
     σV = RenyiADAPT.partial_trace(ψEND * ψEND', nH)
 
     # CALCULATE ALL THE METRICS
+    numiters = trace[:adaptation][a]
     runtime = sum(trace[:elapsed_time][trace[:adaptation][2:a]], init=0.0)
     purity = RenyiADAPT.purity(σV)
     entropy = real(RenyiADAPT.von_neumann_entropy(σV))
     distance = LinearAlgebra.tr(abs.(ρ .- σV)) / 2
     fidelity = real(LinearAlgebra.tr(sqrt(ρs*σV*ρs)))
 
-    return Metrics(L, runtime, purity, entropy, distance, fidelity)
+    return Metrics(L, numiters, runtime, purity, entropy, distance, fidelity)
 end
 
 ##########################################################################################
@@ -119,8 +121,8 @@ function get_hamiltonian(setup)
     end
 
     # IF *ANY* OBJECTS ARE MISSING, GENERATE THEM ALL
-    Random.seed!(seed_H)
-    H, ρ, ρk, ρs = RenyiADAPT.Utils.twolocalhamiltonian(setup.nV)
+    Random.seed!(setup.seed_H)
+    H, ρ, ρk, ρs = RenyiADAPT.Utils.randomtwolocalhamiltonian(setup.nV)
 
     # SAVE HAMILTONIAN - serialize a dict for enhanced portability
     H_asdict = Dict(string(pauli) => coeff for (pauli, coeff) in H.ops)
@@ -273,8 +275,14 @@ function get_dataframe(setup::Params; load=true, run=false)
     H, ρ, ρk, ρs = get_hamiltonian(setup)
     ansatz,trace,adapt,vqe,pool,observable,reference,callbacks = get_adapt(setup; run=run)
 
-    # GENERATE THE METRICS
+    # INITIALIZE THE DATA FRAME
     df = init_dataframe()
+
+    # CHECK IF THERE *IS* ANY DATA
+    haskey(trace, :adaptation) || return df
+    # TODO: Decide if the empty csv should be written. I say no for now.
+
+    # FILL THE DATA FRAME
     for a in eachindex(trace[:adaptation])
         results = Metrics(trace, pool, reference, setup.nH, ρ, ρs, a)   # Not cheap.
         push!(df, [
