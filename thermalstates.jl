@@ -32,8 +32,8 @@ The methods are designed so that, if data for a run already exists,
 =#
 
 # # RUN ADAPT - do this to generate new data
-# for nV in 1:4; for nH in 0:nV; for seed in 2:20
-#     setup = Setup("renyi", nV, nH, seed)
+# for nV in 4:4; for nH in 0:nV; for seed in 1
+#     setup = Setup("overlap", nV, nH, seed)
 #     display(setup)
 
 #     ansatz, trace, adapt, vqe, pool, O, ψREF, callbacks = JOB.get_adapt(setup; run=true)
@@ -59,8 +59,10 @@ import DataFrames   # Julia's version of Python's `pandas`
 
 df = DataFrames.DataFrame()
 for file in readdir(JOB.METRIC, join=true)
-    csv = CSV.File(file)
-    append!(df, DataFrames.DataFrame(csv))
+    try
+        csv = CSV.File(file)
+        append!(df, DataFrames.DataFrame(csv))
+    catch end
 end
 
 ##########################################################################################
@@ -106,13 +108,6 @@ for (key, curve) in pairs(pdf)
     sort!(curves[key], :numparams)
 end
 
-plt = Plots.plot(;
-    xlabel = "ADAPT Iterations",
-    ylabel = "Infidelity",
-    ylims = [0.0, 1.0],
-    legend = :topright,
-)
-
 function get_args(key)
     args = Dict{Symbol,Any}()
 
@@ -134,7 +129,41 @@ function get_args(key)
     return args
 end
 
+plt = Plots.plot(;
+    xlabel = "ADAPT Iterations",
+    ylabel = "Infidelity",
+    ylims = [1e-16, 1e2],
+    yscale = :log10,
+    yticks = 10.0 .^ (-16:2:2),
+    legend = :topright,
+)
+
 for (key, curve) in pairs(curves)
+    key.nV == key.nH || continue
+    # key.enum_method == "renyi" || continue
+
+    Plots.plot!(plt,
+        curve[!,:numparams],
+        1 .- curve[!,:q2];
+        ribbon = (
+            curve[!,:q3] .- curve[!,:q2],   # BOTTOM ERROR (backwards 'cause INfidelity)
+            curve[!,:q2] .- curve[!,:q1],   # TOP ERROR (backwards 'cause INfidelity)
+        ),
+        get_args(key)...
+    )
+end
+Plots.savefig(plt, "thermalstates/infidelityvsparameters.renyivoverlap.pdf")
+
+
+plt = Plots.plot(;
+    xlabel = "ADAPT Iterations",
+    ylabel = "Infidelity",
+    ylims = [0.0, 1.0],
+    legend = :topright,
+)
+
+for (key, curve) in pairs(curves)
+    # key.nV == key.nH || continue
     key.enum_method == "renyi" || continue
 
     Plots.plot!(plt,
@@ -147,7 +176,8 @@ for (key, curve) in pairs(curves)
         get_args(key)...
     )
 end
-Plots.savefig(plt, "thermalstates/infidelityvsparameters.pdf")
+# Plots.savefig(plt, "thermalstates/infidelityvsparameters.png")
+Plots.savefig(plt, "thermalstates/infidelityvsparameters.overnH.pdf")
 
 
 
