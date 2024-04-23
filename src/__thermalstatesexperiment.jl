@@ -138,7 +138,6 @@ end
 
 """ Interact with file system. (Loads ψREF if already there, or saves it if not. """
 function get_referencevector(setup::Params)
-    setup.enum_ψREF == "entangled" || error("Unsupported ψREF enum.")
     name = "$(setup.enum_ψREF).$(setup.nV).$(setup.nH).$(setup.seed_ψ)"
 
     # IF FILE OBJECT EXISTS, ASSUME IT IS SAFE TO LOAD
@@ -146,7 +145,15 @@ function get_referencevector(setup::Params)
 
     # OTHERWISE, GENERATE IT...
     Random.seed!(setup.seed_ψ)
-    ψREF = RenyiADAPT.Utils.randomentangledvector(setup.nV, setup.nH)
+
+    if setup.enum_ψREF == "entangled"
+        ψREF = RenyiADAPT.Utils.randomentangledvector(setup.nV, setup.nH)
+    elseif startswith(setup.enum_ψREF, "zipf_")
+        p = parse(Float64, only(match(r"zipf_(.*)", setup.enum_ψREF)))
+        ψREF = RenyiADAPT.Utils.zipfvector(setup.nV, setup.nH, p)
+    else
+        error("Unsupported ψREF enum.")
+    end
 
     # ...AND NOW SAVE IT!
     NPZ.npzwrite("$PSI/$name.npy", ψREF)
@@ -170,7 +177,7 @@ function name_result(setup::Params)
 end
 
 """ Construct all the objects needed to start ADAPT. """
-function init_adapt(setup::Params)
+function init_adapt(setup::Params; more_callbacks=ADAPT.AbstractCallback[])
     name = name_result(setup)
 
     adapt = ADAPT.VANILLA
@@ -206,6 +213,7 @@ function init_adapt(setup::Params)
         RenyiADAPT.Utils.Serializer("$ANSATZ/$name", "$TRACE/$name"),
         ADAPT.Callbacks.ScoreStopper(1e-3),
         ADAPT.Callbacks.ParameterStopper(length(pool)),
+        more_callbacks...,
     ]
     #= NOTE: Changing convergence criteria for ADAPT does *not* need a new `enum_method`,
         since it does not change the trajectory.
@@ -221,9 +229,12 @@ function init_adapt(setup::Params)
 end
 
 """ Interact with file system. Run adapt if the existing ansatz isn't converged. """
-function get_adapt(setup::Params; run=false)
+function get_adapt(setup::Params; more_callbacks=ADAPT.AbstactCallback[], run=false)
     name = name_result(setup)
-    ansatz,trace,adapt,vqe,pool,observable,reference,callbacks = init_adapt(setup)
+    ansatz,trace,adapt,vqe,pool,observable,reference,callbacks = init_adapt(
+        setup;
+        more_callbacks=more_callbacks,
+    )
 
     if all((
         isfile("$ANSATZ/$name"),
@@ -264,7 +275,10 @@ function init_dataframe()
     )
 end
 
-function get_dataframe(setup::Params; load=true, run=false)
+function get_dataframe(
+    setup::Params;
+    more_callbacks=ADAPT.AbstractCallback[], load=true, run=false,
+)
     name = name_result(setup)
 
     if load && isfile("$METRIC/$name.csv")
@@ -273,7 +287,11 @@ function get_dataframe(setup::Params; load=true, run=false)
 
     # FETCH ALL THE INTERMEDIATE OBJECTS
     H, ρ, ρk, ρs = get_hamiltonian(setup)
-    ansatz,trace,adapt,vqe,pool,observable,reference,callbacks = get_adapt(setup; run=run)
+    ansatz,trace,adapt,vqe,pool,observable,reference,callbacks = get_adapt(
+        setup;
+        run=run,
+        more_callbacks=more_callbacks,
+    )
 
     # INITIALIZE THE DATA FRAME
     df = init_dataframe()

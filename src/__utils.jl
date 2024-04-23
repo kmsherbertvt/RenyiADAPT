@@ -5,6 +5,9 @@ import PauliOperators: KetBitString, SparseKetBasis
 import IterTools
 import LinearAlgebra
 
+import RandomMatrices
+import Roots
+
 function one_local_pool(n::Int64, axes=["I","X","Y","Z"])
     pool = ScaledPauliVector(n)
     for i in 1:n
@@ -134,6 +137,44 @@ function randomentangledvector(nV, nH)
         for qV in 1:nV
             apply_CNOT!(ψREF, qH, qV)
         end
+    end
+
+    return ψREF
+end
+
+""" Generate ψREF.
+
+Random statevector with controllable distance to maximally mixed state on visible nodes.
+Choosing p=0 generates maximally mixed state, p=1 a pure state.
+
+"""
+function zipfvector(nV, nH, p)
+    dV = 1 << nV
+    dH = 1 << nH
+    N = min(dV, dH)         # TOTAL NUMBER OF VECTORS IN SCHMIDT DECOMPOSITION
+
+    # IDENTIFY THE POWER WHICH CORRESPONDS TO p
+    f(s) = (
+        H = sum( k^(-s) for k in 1:N );     # PARTITION FUNCTION
+        π = [k^(-s) / H for k in 1:N];      # PROBABILITY DISTRIBUTION
+        D = sum(abs.(π .- (1/N)))/2;        # TRACE DISTANCE TO MAXIMALLY MIXED STATE
+        D - p*(N-1)/N                       # MATCH AGAINST DISTANCE FOR PURE STATE
+    )
+    s = Roots.find_zero(f, (0.0, Inf))
+
+    # PREPARE THE ZIPF DISTRIBUTION
+    H = sum( k^(-s) for k in 1:N )      # ZIPF PARTITION FUNCTION
+    λ = [k^(-s) / H for k in 1:N]       # ZIPF DISTRIBUTION
+
+    # GENERATE RANDOM ORTHONORMAL BASES ON SYSTEM AND ANCILLA REGISTERS
+    haar = RandomMatrices.Haar(2)   # Haar distribution with iid real+imag parts.
+    UV = rand(haar, dV)     # NOTE: Taxes random stream more than strictly necessary,
+    UH = rand(haar, dH)     #           if nV ≠ nH.
+
+    # CONSTRUCT STATEVECTOR FROM SCHMIDT DECOMPOSITION
+    ψREF = zeros(ComplexF64, dV*dH)
+    for i in 1:N
+        ψREF .+= sqrt(λ[i]) * LinearAlgebra.kron(UV[:,i], UH[:,i])
     end
 
     return ψREF

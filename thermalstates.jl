@@ -1,6 +1,7 @@
 #= Sandbox for generating, inspecting, and plotting data from thermalstates experiment. =#
 
 import RenyiADAPT.ThermalStatesExperiment as JOB
+import ADAPT
 
 """ Convenience constructor for input variables.
 
@@ -31,153 +32,164 @@ The methods are designed so that, if data for a run already exists,
     meaning nothing expensive happens if you ask to run a job that is already done.
 =#
 
-# # RUN ADAPT - do this to generate new data
-# for nV in 4:4; for nH in 0:nV; for seed in 1
-#     setup = Setup("overlap", nV, nH, seed)
-#     display(setup)
+# ASSIGN MORE CALLBACKS
+more_callbacks = ADAPT.AbstractCallback[
+    ADAPT.Callbacks.ParameterStopper(0),    # For scaling evidence on barren plateaus.
+]
 
-#     ansatz, trace, adapt, vqe, pool, O, ψREF, callbacks = JOB.get_adapt(setup; run=true)
 
-#     df = JOB.get_dataframe(setup)
-#     display(df)
+# RUN ADAPT - do this to generate new data
+for nV in 7:10; for nH in nV:nV; for seed in 1:1
+    setup = JOB.Params("twolocal", "entangled", "twolocal", "renyi", nV, nH, seed, seed)
+    display(setup)
 
-#     println("\n"^3)
-# end; end; end
+    ansatz, trace, adapt, vqe, pool, O, ψREF, callbacks = JOB.get_adapt(setup;
+        more_callbacks=more_callbacks,
+        run=true,
+    )
+
+    df = JOB.get_dataframe(setup)
+    display(df)
+
+    println("\n"^3)
+end; end; end
 
 # # CALCULATE METRICS - do this to re-calculate metrics on existing data
 # for nV in 1:4; for nH in 0:nV
-#     setup = Setup("renyi", nV, nH, 1)
+#     setup = JOB.Params("twolocal", "entangled", "twolocal", "renyi", nV, nH, seed, seed)
 #     JOB.get_dataframe(setup; load=false)
 # end; end
 
 
-##########################################################################################
-#= LOAD ALL DATA =#
+# ##########################################################################################
+# #= LOAD ALL DATA =#
 
-import CSV
-import DataFrames   # Julia's version of Python's `pandas`
+# import CSV
+# import DataFrames   # Julia's version of Python's `pandas`
 
-df = DataFrames.DataFrame()
-for file in readdir(JOB.METRIC, join=true)
-    try
-        csv = CSV.File(file)
-        append!(df, DataFrames.DataFrame(csv))
-    catch end
-end
+# df = DataFrames.DataFrame()
+# for file in readdir(JOB.METRIC, join=true)
+#     try
+#         csv = CSV.File(file)
+#         append!(df, DataFrames.DataFrame(csv))
+#     catch end
+# end
 
-##########################################################################################
-#= PLOT SOME DATA =#
+# ##########################################################################################
+# #= PLOT SOME DATA =#
 
-import ColorSchemes
-import Plots
+# import ColorSchemes
+# import Plots
 
-#= Infidelity vs. ADAPT iteration:
+# #= Infidelity vs. ADAPT iteration:
 
-- Fidelity vs numparams.
-- Aggregate on enums and nV and nH.
-  - Linestyle fixed by enums.
-  - Primary color fixed by nV (from rainbow).
-  - Alpha fixed by ratio nH/nV.
-- Collect quartiles over seed_H, seed_ψ.
-- Plot interquartile range of fidelity vs numparams.
+# - Fidelity vs numparams.
+# - Aggregate on enums and nV and nH.
+#   - Linestyle fixed by enums.
+#   - Primary color fixed by nV (from rainbow).
+#   - Alpha fixed by ratio nH/nV.
+# - Collect quartiles over seed_H, seed_ψ.
+# - Plot interquartile range of fidelity vs numparams.
 
-=#
+# =#
 
-pdf = DataFrames.groupby(df, [
-    :enum_H,
-    :enum_ψREF,
-    :enum_pool,
-    :enum_method,
-    :nV,
-    :nH,
-])
+# pdf = DataFrames.groupby(df, [
+#     :enum_H,
+#     :enum_ψREF,
+#     :enum_pool,
+#     :enum_method,
+#     :nV,
+#     :nH,
+# ])
 
-curves = Dict()
-for (key, curve) in pairs(pdf)
-    curves[key] = DataFrames.combine(
-        DataFrames.groupby(curve, :numparams),
-        :numiters,
-        :fidelity => (itr -> DataFrames.quantile(itr, 0.00)) => :q0,
-        :fidelity => (itr -> DataFrames.quantile(itr, 0.25)) => :q1,
-        :fidelity => (itr -> DataFrames.quantile(itr, 0.50)) => :q2,
-        :fidelity => (itr -> DataFrames.quantile(itr, 0.75)) => :q3,
-        :fidelity => (itr -> DataFrames.quantile(itr, 1.00)) => :q4,
-        # :fidelity => DataFrames.median,
-    )
+# curves = Dict()
+# for (key, curve) in pairs(pdf)
+#     curves[key] = DataFrames.combine(
+#         DataFrames.groupby(curve, :numparams),
+#         :numiters,
+#         :fidelity => (itr -> DataFrames.quantile(itr, 0.00)) => :q0,
+#         :fidelity => (itr -> DataFrames.quantile(itr, 0.25)) => :q1,
+#         :fidelity => (itr -> DataFrames.quantile(itr, 0.50)) => :q2,
+#         :fidelity => (itr -> DataFrames.quantile(itr, 0.75)) => :q3,
+#         :fidelity => (itr -> DataFrames.quantile(itr, 1.00)) => :q4,
+#         # :fidelity => DataFrames.median,
+#     )
 
-    sort!(curves[key], :numparams)
-end
+#     sort!(curves[key], :numparams)
+# end
 
-function get_args(key)
-    args = Dict{Symbol,Any}()
+# function get_args(key)
+#     args = Dict{Symbol,Any}()
 
-    args[:linewidth] = 2
+#     args[:linewidth] = 2
 
-    args[:linestyle] = (
-        renyi = :solid,
-        overlap = :dash,
-    )[Symbol(key.enum_method)]
+#     args[:linestyle] = (
+#         renyi = :solid,
+#         overlap = :dash,
+#     )[Symbol(key.enum_method)]
 
-    args[:seriescolor] = ColorSchemes.tab10[key.nV]
-    args[:seriesalpha] = 0.2 + 0.8 * (key.nH / key.nV)
+#     args[:seriescolor] = ColorSchemes.tab10[key.nV]
+#     args[:seriesalpha] = 0.2 + 0.8 * (key.nH / key.nV)
 
-    args[:label] = all((
-        key.enum_method == "renyi",
-        key.nV == key.nH,
-    )) ? "n=$(key.nV)" : false
+#     args[:label] = all((
+#         key.enum_method == "renyi",
+#         key.nV == key.nH,
+#     )) ? "n=$(key.nV)" : false
 
-    return args
-end
+#     return args
+# end
 
-plt = Plots.plot(;
-    xlabel = "ADAPT Iterations",
-    ylabel = "Infidelity",
-    ylims = [1e-16, 1e2],
-    yscale = :log10,
-    yticks = 10.0 .^ (-16:2:2),
-    legend = :topright,
-)
+# plt = Plots.plot(;
+#     xlabel = "ADAPT Iterations",
+#     ylabel = "Infidelity",
+#     ylims = [1e-16, 1e2],
+#     yscale = :log10,
+#     yticks = 10.0 .^ (-16:2:2),
+#     legend = :topright,
+# )
 
-for (key, curve) in pairs(curves)
-    key.nV == key.nH || continue
-    # key.enum_method == "renyi" || continue
+# for (key, curve) in pairs(curves)
+#     key.enum_ψREF == "entangled" || continue
+#     # key.nV == key.nH || continue
+#     # key.enum_method == "renyi" || continue
 
-    Plots.plot!(plt,
-        curve[!,:numparams],
-        1 .- curve[!,:q2];
-        ribbon = (
-            curve[!,:q3] .- curve[!,:q2],   # BOTTOM ERROR (backwards 'cause INfidelity)
-            curve[!,:q2] .- curve[!,:q1],   # TOP ERROR (backwards 'cause INfidelity)
-        ),
-        get_args(key)...
-    )
-end
-Plots.savefig(plt, "thermalstates/infidelityvsparameters.renyivoverlap.pdf")
+#     Plots.plot!(plt,
+#         curve[!,:numparams],
+#         1 .- curve[!,:q2];
+#         ribbon = (
+#             curve[!,:q3] .- curve[!,:q2],   # BOTTOM ERROR (backwards 'cause INfidelity)
+#             curve[!,:q2] .- curve[!,:q1],   # TOP ERROR (backwards 'cause INfidelity)
+#         ),
+#         get_args(key)...
+#     )
+# end
+# Plots.savefig(plt, "thermalstates/infidelityvsparameters.log.pdf")
 
 
-plt = Plots.plot(;
-    xlabel = "ADAPT Iterations",
-    ylabel = "Infidelity",
-    ylims = [0.0, 1.0],
-    legend = :topright,
-)
+# plt = Plots.plot(;
+#     xlabel = "ADAPT Iterations",
+#     ylabel = "Infidelity",
+#     ylims = [0.0, 1.0],
+#     legend = :topright,
+# )
 
-for (key, curve) in pairs(curves)
-    # key.nV == key.nH || continue
-    key.enum_method == "renyi" || continue
+# for (key, curve) in pairs(curves)
+#     key.enum_ψREF == "entangled" || continue
+#     # key.nV == key.nH || continue
+#     # key.enum_method == "renyi" || continue
 
-    Plots.plot!(plt,
-        curve[!,:numparams],
-        1 .- curve[!,:q2];
-        ribbon = (
-            curve[!,:q3] .- curve[!,:q2],   # BOTTOM ERROR (backwards 'cause INfidelity)
-            curve[!,:q2] .- curve[!,:q1],   # TOP ERROR (backwards 'cause INfidelity)
-        ),
-        get_args(key)...
-    )
-end
-# Plots.savefig(plt, "thermalstates/infidelityvsparameters.png")
-Plots.savefig(plt, "thermalstates/infidelityvsparameters.overnH.pdf")
+#     Plots.plot!(plt,
+#         curve[!,:numparams],
+#         1 .- curve[!,:q2];
+#         ribbon = (
+#             curve[!,:q3] .- curve[!,:q2],   # BOTTOM ERROR (backwards 'cause INfidelity)
+#             curve[!,:q2] .- curve[!,:q1],   # TOP ERROR (backwards 'cause INfidelity)
+#         ),
+#         get_args(key)...
+#     )
+# end
+# # Plots.savefig(plt, "thermalstates/infidelityvsparameters.png")
+# Plots.savefig(plt, "thermalstates/infidelityvsparameters.linear.pdf")
 
 
 
