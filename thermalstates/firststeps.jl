@@ -129,15 +129,18 @@ function get_args(key)
 
     args[:linestyle] = (
         renyi = :solid,
-        overlap = :dash,
+        overlap = :solid,
     )[Symbol(key.enum_method)]
 
     args[:shape] = (
-        renyi = :circle,
-        overlap = :square,
+        renyi = :square,
+        overlap = :circle,
     )[Symbol(key.enum_method)]
 
-    args[:seriescolor] = :black
+    args[:seriescolor] = (
+        renyi = 1,
+        overlap = 2,
+    )[Symbol(key.enum_method)]
     # args[:seriesalpha] = 0.2 + 0.8 * (key.Δn)
 
     args[:label] = all((
