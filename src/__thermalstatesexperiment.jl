@@ -80,7 +80,12 @@ function Metrics(trace, pool, ψREF, nH, ρ, ρs, a)
 
     # CALCULATE ALL THE METRICS
     numiters = trace[:adaptation][a]
-    runtime = sum(trace[:elapsed_time][trace[:adaptation][2:a]], init=0.0)
+    if :elapsed_time in keys(trace)
+        runtime = sum(trace[:elapsed_time][trace[:adaptation][2:a]], init=0.0)
+    else
+        # Handle traces which never actually did any optimization...
+        runtime = 0.0
+    end
     purity = RenyiADAPT.purity(σV)
     entropy = real(RenyiADAPT.von_neumann_entropy(σV))
     distance = LinearAlgebra.tr(abs.(ρ .- σV)) / 2
@@ -229,7 +234,7 @@ function init_adapt(setup::Params; more_callbacks=ADAPT.AbstractCallback[])
 end
 
 """ Interact with file system. Run adapt if the existing ansatz isn't converged. """
-function get_adapt(setup::Params; more_callbacks=ADAPT.AbstactCallback[], run=false)
+function get_adapt(setup::Params; more_callbacks=ADAPT.AbstractCallback[], run=false)
     name = name_result(setup)
     ansatz,trace,adapt,vqe,pool,observable,reference,callbacks = init_adapt(
         setup;

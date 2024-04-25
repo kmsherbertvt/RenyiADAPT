@@ -4,71 +4,257 @@ import RenyiADAPT.ThermalStatesExperiment as JOB
 import ADAPT
 import Serialization
 import Statistics
+import LinearAlgebra: norm
 
-# LOAD DATA
-Setup(enum_ψREF, enum_method, nV, nH) = JOB.Params(
-    "twolocal", enum_ψREF, "twolocal", enum_method,
-    nV, nH, 1, 1,
-)
+##########################################################################################
+#= LOAD ALL DATA =#
 
-function fill_data!(data, setup)
-    name = JOB.name_result(setup)
-    file = "$(JOB.TRACE)/$name"
-    trace = Serialization.deserialize(file)
+import CSV
+import DataFrames   # Julia's version of Python's `pandas`
 
-    s1 = abs.(trace[:scores][1])
-    s2 = abs.(trace[:scores][2])
+PATTERN = Regex(join((
+    "(twolocal)",                   # enum_H
+    "(entangled|zipf_\\d\\.\\d+)",  # enum_ψREF
+    "(twolocal)",                   # enum_pool
+    "(renyi|overlap)",              # enum_method
+    "(\\d+)",                       # nV
+    "(\\d+)",                       # nH
+    "(\\d+)",                       # seed_H
+    "(\\d+)",                       # seed_ψREF
+), "\\."))
 
-    data[setup] = (
-        u1 = Statistics.mean(s1),
-        σ1 = Statistics.std(s1),
-
-        u2 = Statistics.mean(s2),
-        σ2 = Statistics.std(s2),
+function parsefile(file)
+    re = match(PATTERN, file)
+    isnothing(re) && return nothing
+    return JOB.Params(
+        re[1], re[2], re[3], re[4],
+        parse(Int, re[5]), parse(Int, re[6]),
+        parse(Int, re[7]), parse(Int, re[8]),
     )
-
-    return data
 end
 
-data = Dict()
-for enum_ψREF in ("entangled", "zipf_1.0", "zipf_0.1", "zipf_0.01")
-for enum_method in ("renyi", "overlap")
-for nV in 1:5; for nH in 0:nV
-    setup = Setup(enum_ψREF, enum_method, nV, nH)
-    fill_data!(data, setup)
-end; end; end; end
+df = DataFrames.DataFrame(
+    # INPUT PARAMETERS
+    :enum_H => String[],
+    :enum_ψREF => String[],
+    :enum_pool => String[],
+    :enum_method => String[],
+    :nV => Int[],
+    :nH => Int[],
+    :seed_H => Int[],
+    :seed_ψREF => Int[],
+    # SCORE VECTOR NORMS
+    :GL => Int[],       # Number of non-zero scores.
+    :G0 => JOB.Float[],
+    :G1 => JOB.Float[],
+    :G2 => JOB.Float[],
+    :G∞ => JOB.Float[],
+)
+for file in readdir(JOB.TRACE, join=true)
+    setup = parsefile(file)
+    isnothing(setup) && continue
 
-curves = Dict()
-for enum_ψREF in ("entangled", "zipf_1.0", "zipf_0.1", "zipf_0.01")
-for enum_method in ("renyi", "overlap")
-    setup(n) = Setup(enum_ψREF, enum_method, n, n)
-    curves[enum_ψREF, enum_method] = (
-        u1=[data[setup(n)].u1 for n in 1:5],
-        σ1=[data[setup(n)].σ1 for n in 1:5],
-        u2=[data[setup(n)].u2 for n in 1:5],
-        σ2=[data[setup(n)].σ2 for n in 1:5],
-    )
-end; end
+    trace = Ref(ADAPT.Trace())
+    try
+        trace[] = Serialization.deserialize(file)
+    catch
+        println("Failed to deserialize $file")
+        continue
+    end
 
-# PLOT DATA
+    G  = first(trace[][:scores])
+
+    push!(df, [
+        # INPUT PARAMETERS
+        [getfield(setup, field) for field in fieldnames(typeof(setup))]...,
+        # SCORE VECTOR NORMS
+        count(g -> abs(g) > eps(JOB.Float), G),
+        norm(G, 0),
+        norm(G, 1),
+        norm(G, 2),
+        norm(G, Inf),
+    ])
+end
+
+# SET A COLUMN EXPLICITLY GIVING THE DISTANCE TO A FULLY CONTROLLABLE SYSTEM
+df[!,:Δn] = df[!,:nV] .- df[!,:nH]
+
+##########################################################################################
+#= PREPARE FOR PLOTTING =#
+
+import ColorSchemes
 import Plots
 
+#= Score vs. system size:
+
+- G∞ vs nV.
+  - Possibly also u≡G1/G0, σ=√(G2-G1²)/G0, same again using GL instead of G0?
+- Aggregate on enums and nV-nH.
+  - Linestyle fixed by enums.
+  - Primary color fixed by nV-nH.
+- Collect quartiles over seed_H, seed_ψ.
+- Plot interquartile range of score vs nV.
+
+=#
+
+pdf = DataFrames.groupby(df, [
+    :enum_H,
+    :enum_ψREF,
+    :enum_pool,
+    :enum_method,
+    :Δn,
+])
+
+curves = Dict()
+for (key, curve) in pairs(pdf)
+    curves[key] = DataFrames.combine(
+        DataFrames.groupby(curve, :nV),
+        :G∞ => (itr -> DataFrames.quantile(itr, 0.00)) => :q0,
+        :G∞ => (itr -> DataFrames.quantile(itr, 0.25)) => :q1,
+        :G∞ => (itr -> DataFrames.quantile(itr, 0.50)) => :q2,
+        :G∞ => (itr -> DataFrames.quantile(itr, 0.75)) => :q3,
+        :G∞ => (itr -> DataFrames.quantile(itr, 1.00)) => :q4,
+        # TODO: Maybe u and σ also? But I doubt it.
+    )
+
+    sort!(curves[key], :nV)
+end
+
+curves = sort(curves; by=key->key.Δn)
+
+function get_args(key)
+    args = Dict{Symbol,Any}()
+
+    args[:linewidth] = 2
+
+    args[:linestyle] = (
+        renyi = :solid,
+        overlap = :dash,
+    )[Symbol(key.enum_method)]
+
+    args[:shape] = (
+        renyi = :circle,
+        overlap = :square,
+    )[Symbol(key.enum_method)]
+
+    args[:seriescolor] = :black
+    # args[:seriesalpha] = 0.2 + 0.8 * (key.Δn)
+
+    args[:label] = all((
+        key.Δn == 0,
+    )) ? (
+        renyi = "Renyi",
+        overlap = "Overlap",
+    )[Symbol(key.enum_method)] : false
+
+    return args
+end
+
+
+##########################################################################################
+#= PLOT SOME DATA: Full log plot sans ribbons. Plot max infidelity rather than median. =#
+
+include_it(key) = all((
+    key.enum_ψREF == "entangled",
+    key.Δn == 0,
+    key.enum_method == "renyi" || key.enum_method == "overlap",
+))
+
 plt = Plots.plot(;
-    xlabel = "# qubits (n=nV=nH)",
-    ylabel = "",
+    xlabel = "System Size",
+    ylabel = "Worst Best |Gradient|",
+    ylims = [1e-2, 1e1],
     yscale = :log10,
+    yticks = 10.0 .^ (-16:1:2),
     legend = :bottomleft,
 )
 
 for (key, curve) in pairs(curves)
-    enum_ψREF, enum_method = key
-    label = "$enum_ψREF $enum_method"
-    color = convert(Int, hash(enum_ψREF)>>1)
-    shape = enum_method == "renyi" ? :circle : :square
-    Plots.plot!(plt, curve.u1; label=false, color=color, shape=shape, lw=2, ls=:solid)
-    Plots.plot!(plt, curve.σ1; label=false, color=color, shape=shape, lw=2, ls=:dashdot)
-    Plots.plot!(plt, curve.u2; label=false, color=color, shape=shape, lw=2, ls=:dashdotdot)
-    Plots.plot!(plt, curve.σ2; label=false, color=color, shape=shape, lw=2, ls=:dot)
-end
+    include_it(key) || continue
 
-Plots.gui()
+    Plots.plot!(plt,
+        curve[!,:nV],
+        curve[!,:q0];  # Worst-case gradient.
+        get_args(key)...
+    )
+end
+Plots.savefig(plt, "thermalstates/firststeps.worstcase.pdf")
+
+
+plt = Plots.plot(;
+    xlabel = "System Size",
+    ylabel = "Worst Best |Gradient|",
+    ylims = [1e-2, 1e1],
+    yscale = :log10,
+    yticks = 10.0 .^ (-16:1:2),
+    legend = :bottomleft,
+)
+
+for (key, curve) in pairs(curves)
+    include_it(key) || continue
+
+    Plots.plot!(plt,
+        curve[!,:nV],
+        curve[!,:q4];  # Worst-case gradient.
+        get_args(key)...
+    )
+end
+Plots.savefig(plt, "thermalstates/firststeps.bestcase.pdf")
+
+
+plt = Plots.plot(;
+    xlabel = "System Size",
+    ylabel = "Worst Best |Gradient|",
+    ylims = [1e-2, 1e1],
+    yscale = :log10,
+    yticks = 10.0 .^ (-16:1:2),
+    legend = :bottomleft,
+)
+
+for (key, curve) in pairs(curves)
+    include_it(key) || continue
+
+    Plots.plot!(plt,
+        curve[!,:nV],
+        curve[!,:q2];
+        ribbon = (
+            curve[!,:q2] .- curve[!,:q1],   # BOTTOM ERROR
+            curve[!,:q3] .- curve[!,:q2],   # TOP ERROR
+        ),
+        get_args(key)...
+    )
+end
+Plots.savefig(plt, "thermalstates/firststeps.interquartile.pdf")
+
+
+plt = Plots.plot(;
+    xlabel = "System Size",
+    ylabel = "Worst Best |Gradient|",
+    ylims = [1e-2, 1e1],
+    yscale = :log10,
+    yticks = 10.0 .^ (-16:1:2),
+    legend = :bottomleft,
+)
+
+for (key, curve) in pairs(curves)
+    include_it(key) || continue
+
+    Plots.plot!(plt,
+        curve[!,:nV],
+        curve[!,:q2];
+        ribbon = (
+            curve[!,:q2] .- curve[!,:q0],   # BOTTOM ERROR
+            curve[!,:q4] .- curve[!,:q2],   # TOP ERROR
+        ),
+        # yerr = (
+        #     curve[!,:q2] .- curve[!,:q0],   # BOTTOM ERROR
+        #     curve[!,:q4] .- curve[!,:q2],   # TOP ERROR
+        # ),
+        # ribbon = (
+        #     curve[!,:q2] .- curve[!,:q1],   # BOTTOM ERROR
+        #     curve[!,:q3] .- curve[!,:q2],   # TOP ERROR
+        # ),
+        get_args(key)...
+    )
+end
+Plots.savefig(plt, "thermalstates/firststeps.range.pdf")

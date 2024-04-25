@@ -39,8 +39,9 @@ more_callbacks = ADAPT.AbstractCallback[
 
 
 # RUN ADAPT - do this to generate new data
-for nV in 7:10; for nH in nV:nV; for seed in 1:1
-    setup = JOB.Params("twolocal", "entangled", "twolocal", "renyi", nV, nH, seed, seed)
+for nV in 4:4; for nH in 1:nV; for seed in 2:20
+    nV == 1 && nH == 0 && seed == 15 && continue    # TODO: Annoying singularity bug...
+    setup = JOB.Params("twolocal", "entangled", "twolocal", "overlap", nV, nH, seed, seed)
     display(setup)
 
     ansatz, trace, adapt, vqe, pool, O, ψREF, callbacks = JOB.get_adapt(setup;
@@ -55,10 +56,10 @@ for nV in 7:10; for nH in nV:nV; for seed in 1:1
 end; end; end
 
 # # CALCULATE METRICS - do this to re-calculate metrics on existing data
-# for nV in 1:4; for nH in 0:nV
-#     setup = JOB.Params("twolocal", "entangled", "twolocal", "renyi", nV, nH, seed, seed)
+# for nV in 1:4; for nH in 1:nV; for seed in 1:20
+#     setup = JOB.Params("twolocal", "entangled", "twolocal", "overlap", nV, nH, seed, seed)
 #     JOB.get_dataframe(setup; load=false)
-# end; end
+# end; end; end
 
 
 # ##########################################################################################

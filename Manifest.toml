@@ -6,7 +6,7 @@ project_hash = "2ba217e027e96b208a8db64b05db27110a163adc"
 
 [[deps.ADAPT]]
 deps = ["BlockDavidson", "FiniteDifferences", "KrylovKit", "LinearAlgebra", "Optim", "PauliOperators", "Test"]
-git-tree-sha1 = "f67da9bcf0d4393a68b93ed4ac9939abef92b140"
+git-tree-sha1 = "88972bdd10b5eec7b22c97561b4ce5bb809baa08"
 repo-rev = "main"
 repo-url = "https://github.com/kmsherbertvt/ADAPT.jl"
 uuid = "cf1f529f-af3f-4d7a-b5f1-0e7d3fdd5852"
