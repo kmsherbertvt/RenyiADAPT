@@ -15,104 +15,106 @@ Log x might make sense iff we really care about showing off nV<4;
 import RenyiADAPT.ThermalStatesExperiment as JOB
 import ADAPT
 
-# ##########################################################################################
-# #= LOAD ALL DATA =#
+##########################################################################################
+#= LOAD ALL DATA =#
 
-# import CSV
-# import DataFrames   # Julia's version of Python's `pandas`
+import CSV
+import DataFrames   # Julia's version of Python's `pandas`
 
-# df = DataFrames.DataFrame()
-# for file in readdir(JOB.METRIC, join=true)
-#     try
-#         csv = CSV.File(file)
-#         append!(df, DataFrames.DataFrame(csv))
-#     catch end
-# end
-
-
-
-# # ADD IN Karunya's GIBBS-ADAPT PLOTS
-# import DelimitedFiles: readdlm
-# dfg = JOB.init_dataframe()
-
-# for nV in 1:3
-#     for nH in nV:nV
-#         for seed in 1:20
-#             filename = "thermalstates/gibbsresults/nV_"*string(nV)*"_nH_"*string(nH)*"_seed_"*string(seed)*"infidelity_vs_params.dat"
-#             mydata = readdlm(filename,Float64)
-#             header = [:numparams,:fidelity]
-#             my_df = DataFrames.DataFrame(mydata,vec(header))
+df = DataFrames.DataFrame()
+for file in readdir(JOB.METRIC, join=true)
+    try
+        csv = CSV.File(file)
+        append!(df, DataFrames.DataFrame(csv))
+    catch end
+end
 
 
-#             for i in axes(mydata,1)
-#                 push!(dfg, [
-#                     "twolocal", #enum_H,
-#                     "entangled", #enum_ψREF,
-#                     "twolocal", #enum_pool,
-#                     "gibbs", #enum_method,
-#                     nV,
-#                     nH,
-#                     seed, # seed_H,
-#                     seed, # seed_ψ,
-#                     mydata[i,1], #numparams,
-#                     0, #numiters,
-#                     0.0, #runtime,
-#                     0.0, # purity,
-#                     0.0, # entropy,
-#                     0.0, # distance,
-#                     1 - mydata[i,2], # fidelity,
-#                 ])
-#             end
+
+# ADD IN Karunya's GIBBS-ADAPT PLOTS
+import DelimitedFiles: readdlm
+dfg = JOB.init_dataframe()
+
+for nV in 1:3
+    for nH in nV:nV
+        for seed in 1:20
+            filename = "thermalstates/gibbsresults/nV_"*string(nV)*"_nH_"*string(nH)*"_seed_"*string(seed)*"infidelity_vs_params.dat"
+            mydata = readdlm(filename,Float64)
+            header = [:numparams,:fidelity]
+            my_df = DataFrames.DataFrame(mydata,vec(header))
 
 
-#             # if nV == 1
-#             #     append!(df1, my_df)
-#             # elseif nV == 2
-#             #     append!(df2, my_df)
-#             # elseif nV == 3
-#             #     append!(df3, my_df)
-#             # end
-#         end
-#     end
-# end
+            for i in axes(mydata,1)
+                push!(dfg, [
+                    "twolocal", #enum_H,
+                    "entangled", #enum_ψREF,
+                    "twolocal", #enum_pool,
+                    "gibbs", #enum_method,
+                    nV,
+                    nH,
+                    seed, # seed_H,
+                    seed, # seed_ψ,
+                    mydata[i,1], #numparams,
+                    0, #numiters,
+                    0.0, #runtime,
+                    0.0, # purity,
+                    0.0, # entropy,
+                    0.0, # distance,
+                    1 - mydata[i,2], # fidelity,
+                    0.0, # maxpoolgradient
+                ])
+            end
 
-# for nV in 4:4
-#     for nH in nV:nV
-#         for seed in 1:1
-#             filename = "thermalstates/gibbsresults/nV_"*string(nV)*"_nH_"*string(nH)*"_seed_"*string(seed)*"infidelity_vs_params.dat"
-#             mydata = readdlm(filename,Float64)
-#             header = [:numparams,:fidelity]
-#             my_df = DataFrames.DataFrame(mydata,vec(header))
+
+            # if nV == 1
+            #     append!(df1, my_df)
+            # elseif nV == 2
+            #     append!(df2, my_df)
+            # elseif nV == 3
+            #     append!(df3, my_df)
+            # end
+        end
+    end
+end
+
+for nV in 4:4
+    for nH in nV:nV
+        for seed in 1:1
+            filename = "thermalstates/gibbsresults/nV_"*string(nV)*"_nH_"*string(nH)*"_seed_"*string(seed)*"infidelity_vs_params.dat"
+            mydata = readdlm(filename,Float64)
+            header = [:numparams,:fidelity]
+            my_df = DataFrames.DataFrame(mydata,vec(header))
 
 
-#             for i in axes(mydata,1)
-#                 push!(dfg, [
-#                     "twolocal", #enum_H,
-#                     "entangled", #enum_ψREF,
-#                     "twolocal", #enum_pool,
-#                     "gibbs", #enum_method,
-#                     nV,
-#                     nH,
-#                     seed, # seed_H,
-#                     seed, # seed_ψ,
-#                     mydata[i,1], #numparams,
-#                     0, #numiters,
-#                     0.0, #runtime,
-#                     0.0, # purity,
-#                     0.0, # entropy,
-#                     0.0, # distance,
-#                     1 - mydata[i,2], # fidelity,
-#                 ])
-#             end
+            for i in axes(mydata,1)
+                push!(dfg, [
+                    "twolocal", #enum_H,
+                    "entangled", #enum_ψREF,
+                    "twolocal", #enum_pool,
+                    "gibbs", #enum_method,
+                    nV,
+                    nH,
+                    seed, # seed_H,
+                    seed, # seed_ψ,
+                    mydata[i,1], #numparams,
+                    0, #numiters,
+                    0.0, #runtime,
+                    0.0, # purity,
+                    0.0, # entropy,
+                    0.0, # distance,
+                    1 - mydata[i,2], # fidelity,
+                    0.0, # maxpoolgradient
+                ])
+            end
 
-#             # if nV == 4
-#             #     append!(df4, my_df)
-#             # end
-#         end
-#     end
-# end
+            # if nV == 4
+            #     append!(df4, my_df)
+            # end
+        end
+    end
+end
 
-# append!(df, dfg)
+append!(df, dfg)
 
 ##########################################################################################
 #= PREPARE FOR PLOTTING =#
