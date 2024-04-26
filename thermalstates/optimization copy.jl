@@ -10,11 +10,14 @@ Don't worry about the vertical lines,
 
 This script will have to serialize the VQE runs for Renyi and Overlap.
 
+BACKUP from when trying to plot all methods on one plot.
+That is problematic since it plots different units on the same axis.
+Avoid it by just giving each method its own loss plot.
+
 =#
 
 import RenyiADAPT.ThermalStatesExperiment as JOB
 import ADAPT
-import Serialization
 
 enum_H = "twolocal"
 enum_ψREF = "entangled"
@@ -102,107 +105,71 @@ Each method gets three curves:
 import Plots
 import ColorSchemes
 
+plt = Plots.plot(;
+    xlabel = "BFGS Iterations",
+    ylabel = "Loss Function - Min Loss Function",
+    ylims = [1e-16, 1e2],
+    yscale = :log10,
+    yticks = 10.0 .^ (-16:2:2),
+    legend = :bottom,
+)
+
+# DUMMY CURVE FOR VQE LEGEND
+Plots.plot!(plt, [0], [-1]; color=:black, lw=2, ls=:dot, label="VQE")
+
 
 # PLOT RENYI
 
-plt = Plots.plot(;
-    xlabel = "BFGS Iterations",
-    ylabel = "Loss (Maximal Renyi Divergence)",
-    ylims = [1e-16, 1e2],
-    yscale = :log10,
-    yticks = 10.0 .^ (-16:2:2),
-    legend = :topright,
+E0 = min(
+    minimum(trace_R[:energy]),
+    minimum(trace_vR[:energy]),
 )
-
-E0 = 0  # Set an "exact" energy.
-
-ER = trace_R[:energy]
-EvR = trace_vR[:energy]
-
-#= TODO: Awkward. We normalized ρk incorrectly so there is an extra log(K) in here.
-
-ρ = exp(-H) / Tr[exp(-H)]
-ρk = inv(ρ) = exp(H) * Tr[exp(-H)]
-
-Unfortunately, what I've done is
-
-my_ρk = exp(H) / Tr[exp(H)]
-
-So my_ρk = ρk / { Tr[exp(-H)] * Tr[exp(H)] } ≡ ρk / K
-
-Thus, D(σ,my_ρk)= log(Tr[σ² my_ρk])
-                = log(Tr[σ² ρk / K])
-                = log(Tr[σ² ρk] / K)
-                = log(Tr[σ² ρk]) - log K
-    So the true D = my_D + log K
-
-It's just a constant appearing in the loss function,
-    it shouldn't affect the gradient (or therefore the optimization) in the slightest.
-Except perhaps edge case numerical effects. :/
-
-=#
-H, ρ, ρk, ρs = JOB.get_hamiltonian(setup_R)
-Hm = Matrix(H)
-expH_ = exp(-Hm)
-expH  = exp(Hm)
-import LinearAlgebra: tr
-K = real(tr(expH_) * tr(expH))
-ER = ER .+ log(K)
-EvR = EvR .+ log(K)
-
-
 
 color = 1
 shape = :square
+label = "Renyi"
 
 Plots.plot!(plt,
     trace_R[:iteration],
-    ER .- E0;
-    lw=2, ls=:solid, label="ADAPT Loss", color=color,
+    trace_R[:energy] .- E0;
+    lw=2, ls=:solid, label=false, color=color,
 )
 Plots.scatter!(plt,
     trace_R[:adaptation][2:end],
-    ER[trace_R[:adaptation][2:end]] .- E0;
-    label="ADAPT Step", shape=shape, color=color,
+    trace_R[:energy][trace_R[:adaptation][2:end]] .- E0;
+    label=label, shape=shape, color=color,
 )
 Plots.plot!(plt,
     trace_vR[:iteration],
-    EvR .- E0;
-    lw=2, ls=:dot, label="VQE Loss", color=color,
+    trace_vR[:energy] .- E0;
+    lw=2, ls=:dot, label=false, color=color,
 )
 
-Plots.savefig(plt, "thermalstates/optimization.renyi.pdf")
+# PLOT RENYI
 
-# PLOT OVERLAP
-
-plt = Plots.plot(;
-    xlabel = "BFGS Iterations",
-    ylabel = "Loss (Infidelity)",
-    ylims = [1e-16, 1e2],
-    yscale = :log10,
-    yticks = 10.0 .^ (-16:2:2),
-    legend = :topright,
+E0 = min(
+    minimum(trace_O[:energy]),
+    minimum(trace_vO[:energy]),
 )
-
-E0 = 0  # Set an "exact" energy.
 
 color = 2
 shape = :circle
+label = "Overlap"
 
 Plots.plot!(plt,
     trace_O[:iteration],
     trace_O[:energy] .- E0;
-    lw=2, ls=:solid, label="ADAPT Loss", color=color,
+    lw=2, ls=:solid, label=false, color=color,
 )
 Plots.scatter!(plt,
     trace_O[:adaptation][2:end],
     trace_O[:energy][trace_O[:adaptation][2:end]] .- E0;
-    label="ADAPT Step", shape=shape, color=color,
+    label=label, shape=shape, color=color,
 )
 Plots.plot!(plt,
     trace_vO[:iteration],
     trace_vO[:energy] .- E0;
-    lw=2, ls=:dot, label="VQE Loss", color=color,
+    lw=2, ls=:dot, label=false, color=color,
 )
 
-Plots.savefig(plt, "thermalstates/optimization.overlap.pdf")
+Plots.savefig(plt, "thermalstates/optimization.pdf")
