@@ -106,6 +106,14 @@ function randomtwolocalhamiltonian(nV)
 
     ρk = exp(Hm)                # NOTE: Not cheap!
     ρk ./= LinearAlgebra.tr(ρk)
+    #= TODO: Wrong partition function! You should be MULTIPLYING by whatever the norm of ρ was, before it was normalized.
+
+    This error introduces an offset in absolute values of D,
+        but it should not affect ∂D or optimizations at all,
+        (except possibly through some very negligible numerical errors
+            due to dividing nearly-equal floats).
+    Therefore I recommend not touching it for now.
+    =#
 
     ρs = sqrt(ρ)             # NOTE: Not cheap!
 
