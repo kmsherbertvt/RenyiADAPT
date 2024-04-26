@@ -97,6 +97,10 @@ for file in readdir(JOB.TRACE, join=true)
     ])
 end
 
+# ADD IN Karunya's DATA
+include("./gibbsGnormdf.jl")
+append!(df, gibbs_df)
+
 # SET A COLUMN EXPLICITLY GIVING THE DISTANCE TO A FULLY CONTROLLABLE SYSTEM
 df[!,:Δn] = df[!,:nV] .- df[!,:nH]
 
@@ -152,16 +156,19 @@ function get_args(key)
     # args[:linestyle] = (
     #     renyi = :solid,
     #     overlap = :solid,
+    #     gibbs = :solid,
     # )[Symbol(key.enum_method)]
 
     args[:shape] = (
         renyi = :square,
         overlap = :circle,
+        gibbs = :utriangle,
     )[Symbol(key.enum_method)]
 
     args[:seriescolor] = (
         renyi = 1,
         overlap = 2,
+        gibbs = 3,
     )[Symbol(key.enum_method)]
     args[:seriesalpha] = 0.2 + 0.8 * (key.nV/4)
 
@@ -171,6 +178,7 @@ function get_args(key)
     )) ? (
         renyi = "Renyi",
         overlap = "Overlap",
+        gibbs = "Gibbs",
     )[Symbol(key.enum_method)] : false
 
     return args
@@ -183,13 +191,17 @@ end
 include_it(key) = all((
     key.enum_ψREF == "entangled",
     key.Δn == 0,
-    key.enum_method == "renyi" || key.enum_method == "overlap",
+    any((
+        key.enum_method == "renyi",
+        key.enum_method == "overlap",
+        key.enum_method == "gibbs",
+    )),
 ))
 
 plt = Plots.plot(;
     xlabel = "Trace Distance",
     ylabel = "Initial Gradient ∞-norm",
-    ylims = [1e-2, 1e1],
+    ylims = [1e-3, 1e1],
     yscale = :log10,
     yticks = 10.0 .^ (-16:1:2),
     legend = :bottomleft,
@@ -212,16 +224,10 @@ Plots.savefig(plt, "thermalstates/distance.distance.pdf")
 ##########################################################################################
 #= PLOT SOME DATA: Scatter G∞ vs fidelity. =#
 
-include_it(key) = all((
-    key.enum_ψREF == "entangled",
-    key.Δn == 0,
-    key.enum_method == "renyi" || key.enum_method == "overlap",
-))
-
 plt = Plots.plot(;
     xlabel = "Fidelity",
     ylabel = "Initial Gradient ∞-norm",
-    ylims = [1e-2, 1e1],
+    ylims = [1e-3, 1e1],
     yscale = :log10,
     yticks = 10.0 .^ (-16:1:2),
     legend = :bottomright,

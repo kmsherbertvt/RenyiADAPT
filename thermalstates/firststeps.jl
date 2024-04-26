@@ -49,6 +49,9 @@ df = DataFrames.DataFrame(
     :G1 => JOB.Float[],
     :G2 => JOB.Float[],
     :G∞ => JOB.Float[],
+    # DISTANCE MEASURES
+    :fidelity => JOB.Float[],
+    :distance => JOB.Float[],
 )
 for file in readdir(JOB.TRACE, join=true)
     setup = parsefile(file)
@@ -62,7 +65,14 @@ for file in readdir(JOB.TRACE, join=true)
         continue
     end
 
+    # FETCH POOL GRADIENT FOR SCORE NORMS
     G  = first(trace[][:scores])
+
+    # FETCH ρ AND σ0 FOR DISTANCE MEASURES
+    _, ρ, _, ρs = JOB.get_hamiltonian(setup)
+    ψREF = JOB.get_referencevector(setup)
+    σ = ψREF * ψREF'
+    σ0 = RenyiADAPT.partial_trace(σ, setup.nH)
 
     push!(df, [
         # INPUT PARAMETERS
@@ -73,8 +83,17 @@ for file in readdir(JOB.TRACE, join=true)
         norm(G, 1),
         norm(G, 2),
         norm(G, Inf),
+        # DISTANCE MEASURES
+        real( tr(sqrt(ρs*σ0*ρs)) ),
+        real( tr(abs.(ρ .- σ0)) / 2 ),
     ])
 end
+
+
+# ADD IN Karunya's DATA
+include("./gibbsGnormdf.jl")
+append!(df, gibbs_df)
+
 
 # SET A COLUMN EXPLICITLY GIVING THE DISTANCE TO A FULLY CONTROLLABLE SYSTEM
 df[!,:Δn] = df[!,:nV] .- df[!,:nH]
@@ -130,16 +149,19 @@ function get_args(key)
     args[:linestyle] = (
         renyi = :solid,
         overlap = :solid,
+        gibbs = :solid,
     )[Symbol(key.enum_method)]
 
     args[:shape] = (
         renyi = :square,
         overlap = :circle,
+        gibbs = :utriangle,
     )[Symbol(key.enum_method)]
 
     args[:seriescolor] = (
         renyi = 1,
         overlap = 2,
+        gibbs = 3,
     )[Symbol(key.enum_method)]
     # args[:seriesalpha] = 0.2 + 0.8 * (key.Δn)
 
@@ -148,6 +170,7 @@ function get_args(key)
     )) ? (
         renyi = "Renyi",
         overlap = "Overlap",
+        gibbs = "Gibbs",
     )[Symbol(key.enum_method)] : false
 
     return args
@@ -160,80 +183,84 @@ end
 include_it(key) = all((
     key.enum_ψREF == "entangled",
     key.Δn == 0,
-    key.enum_method == "renyi" || key.enum_method == "overlap",
+    any((
+        key.enum_method == "renyi",
+        key.enum_method == "overlap",
+        key.enum_method == "gibbs",
+    )),
 ))
 
+# plt = Plots.plot(;
+#     xlabel = "System Size",
+#     ylabel = "Worst Best |Gradient|",
+#     ylims = [1e-3, 1e1],
+#     yscale = :log10,
+#     yticks = 10.0 .^ (-16:1:2),
+#     legend = :bottomleft,
+# )
+
+# for (key, curve) in pairs(curves)
+#     include_it(key) || continue
+
+#     Plots.plot!(plt,
+#         curve[!,:nV],
+#         curve[!,:q0];  # Worst-case gradient.
+#         get_args(key)...
+#     )
+# end
+# Plots.savefig(plt, "thermalstates/firststeps.worstcase.pdf")
+
+
+# plt = Plots.plot(;
+#     xlabel = "System Size",
+#     ylabel = "Worst Best |Gradient|",
+#     ylims = [1e-2, 1e1],
+#     yscale = :log10,
+#     yticks = 10.0 .^ (-16:1:2),
+#     legend = :bottomleft,
+# )
+
+# for (key, curve) in pairs(curves)
+#     include_it(key) || continue
+
+#     Plots.plot!(plt,
+#         curve[!,:nV],
+#         curve[!,:q4];  # Worst-case gradient.
+#         get_args(key)...
+#     )
+# end
+# Plots.savefig(plt, "thermalstates/firststeps.bestcase.pdf")
+
+
+# plt = Plots.plot(;
+#     xlabel = "System Size",
+#     ylabel = "Worst Best |Gradient|",
+#     ylims = [1e-2, 1e1],
+#     yscale = :log10,
+#     yticks = 10.0 .^ (-16:1:2),
+#     legend = :bottomleft,
+# )
+
+# for (key, curve) in pairs(curves)
+#     include_it(key) || continue
+
+#     Plots.plot!(plt,
+#         curve[!,:nV],
+#         curve[!,:q2];
+#         ribbon = (
+#             curve[!,:q2] .- curve[!,:q1],   # BOTTOM ERROR
+#             curve[!,:q3] .- curve[!,:q2],   # TOP ERROR
+#         ),
+#         get_args(key)...
+#     )
+# end
+# Plots.savefig(plt, "thermalstates/firststeps.interquartile.pdf")
+
+
 plt = Plots.plot(;
     xlabel = "System Size",
-    ylabel = "Worst Best |Gradient|",
-    ylims = [1e-2, 1e1],
-    yscale = :log10,
-    yticks = 10.0 .^ (-16:1:2),
-    legend = :bottomleft,
-)
-
-for (key, curve) in pairs(curves)
-    include_it(key) || continue
-
-    Plots.plot!(plt,
-        curve[!,:nV],
-        curve[!,:q0];  # Worst-case gradient.
-        get_args(key)...
-    )
-end
-Plots.savefig(plt, "thermalstates/firststeps.worstcase.pdf")
-
-
-plt = Plots.plot(;
-    xlabel = "System Size",
-    ylabel = "Worst Best |Gradient|",
-    ylims = [1e-2, 1e1],
-    yscale = :log10,
-    yticks = 10.0 .^ (-16:1:2),
-    legend = :bottomleft,
-)
-
-for (key, curve) in pairs(curves)
-    include_it(key) || continue
-
-    Plots.plot!(plt,
-        curve[!,:nV],
-        curve[!,:q4];  # Worst-case gradient.
-        get_args(key)...
-    )
-end
-Plots.savefig(plt, "thermalstates/firststeps.bestcase.pdf")
-
-
-plt = Plots.plot(;
-    xlabel = "System Size",
-    ylabel = "Worst Best |Gradient|",
-    ylims = [1e-2, 1e1],
-    yscale = :log10,
-    yticks = 10.0 .^ (-16:1:2),
-    legend = :bottomleft,
-)
-
-for (key, curve) in pairs(curves)
-    include_it(key) || continue
-
-    Plots.plot!(plt,
-        curve[!,:nV],
-        curve[!,:q2];
-        ribbon = (
-            curve[!,:q2] .- curve[!,:q1],   # BOTTOM ERROR
-            curve[!,:q3] .- curve[!,:q2],   # TOP ERROR
-        ),
-        get_args(key)...
-    )
-end
-Plots.savefig(plt, "thermalstates/firststeps.interquartile.pdf")
-
-
-plt = Plots.plot(;
-    xlabel = "System Size",
-    ylabel = "Worst Best |Gradient|",
-    ylims = [1e-2, 1e1],
+    ylabel = "Initial Gradient ∞-norm",
+    ylims = [1e-3, 1e1],
     yscale = :log10,
     yticks = 10.0 .^ (-16:1:2),
     legend = :bottomleft,
