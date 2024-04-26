@@ -15,19 +15,104 @@ Log x might make sense iff we really care about showing off nV<4;
 import RenyiADAPT.ThermalStatesExperiment as JOB
 import ADAPT
 
-##########################################################################################
-#= LOAD ALL DATA =#
+# ##########################################################################################
+# #= LOAD ALL DATA =#
 
-import CSV
-import DataFrames   # Julia's version of Python's `pandas`
+# import CSV
+# import DataFrames   # Julia's version of Python's `pandas`
 
-df = DataFrames.DataFrame()
-for file in readdir(JOB.METRIC, join=true)
-    try
-        csv = CSV.File(file)
-        append!(df, DataFrames.DataFrame(csv))
-    catch end
-end
+# df = DataFrames.DataFrame()
+# for file in readdir(JOB.METRIC, join=true)
+#     try
+#         csv = CSV.File(file)
+#         append!(df, DataFrames.DataFrame(csv))
+#     catch end
+# end
+
+
+
+# # ADD IN Karunya's GIBBS-ADAPT PLOTS
+# import DelimitedFiles: readdlm
+# dfg = JOB.init_dataframe()
+
+# for nV in 1:3
+#     for nH in nV:nV
+#         for seed in 1:20
+#             filename = "thermalstates/gibbsresults/nV_"*string(nV)*"_nH_"*string(nH)*"_seed_"*string(seed)*"infidelity_vs_params.dat"
+#             mydata = readdlm(filename,Float64)
+#             header = [:numparams,:fidelity]
+#             my_df = DataFrames.DataFrame(mydata,vec(header))
+
+
+#             for i in axes(mydata,1)
+#                 push!(dfg, [
+#                     "twolocal", #enum_H,
+#                     "entangled", #enum_ψREF,
+#                     "twolocal", #enum_pool,
+#                     "gibbs", #enum_method,
+#                     nV,
+#                     nH,
+#                     seed, # seed_H,
+#                     seed, # seed_ψ,
+#                     mydata[i,1], #numparams,
+#                     0, #numiters,
+#                     0.0, #runtime,
+#                     0.0, # purity,
+#                     0.0, # entropy,
+#                     0.0, # distance,
+#                     1 - mydata[i,2], # fidelity,
+#                 ])
+#             end
+
+
+#             # if nV == 1
+#             #     append!(df1, my_df)
+#             # elseif nV == 2
+#             #     append!(df2, my_df)
+#             # elseif nV == 3
+#             #     append!(df3, my_df)
+#             # end
+#         end
+#     end
+# end
+
+# for nV in 4:4
+#     for nH in nV:nV
+#         for seed in 1:1
+#             filename = "thermalstates/gibbsresults/nV_"*string(nV)*"_nH_"*string(nH)*"_seed_"*string(seed)*"infidelity_vs_params.dat"
+#             mydata = readdlm(filename,Float64)
+#             header = [:numparams,:fidelity]
+#             my_df = DataFrames.DataFrame(mydata,vec(header))
+
+
+#             for i in axes(mydata,1)
+#                 push!(dfg, [
+#                     "twolocal", #enum_H,
+#                     "entangled", #enum_ψREF,
+#                     "twolocal", #enum_pool,
+#                     "gibbs", #enum_method,
+#                     nV,
+#                     nH,
+#                     seed, # seed_H,
+#                     seed, # seed_ψ,
+#                     mydata[i,1], #numparams,
+#                     0, #numiters,
+#                     0.0, #runtime,
+#                     0.0, # purity,
+#                     0.0, # entropy,
+#                     0.0, # distance,
+#                     1 - mydata[i,2], # fidelity,
+#                 ])
+#             end
+
+#             # if nV == 4
+#             #     append!(df4, my_df)
+#             # end
+#         end
+#     end
+# end
+
+# append!(df, dfg)
 
 ##########################################################################################
 #= PREPARE FOR PLOTTING =#
@@ -82,6 +167,7 @@ function get_args(key)
     args[:linestyle] = (
         renyi = :solid,
         overlap = :dash,
+        gibbs = :dot,
     )[Symbol(key.enum_method)]
 
     args[:seriescolor] = ColorSchemes.tab10[key.nV]
@@ -163,7 +249,11 @@ Plots.savefig(plt, "thermalstates/infidelityvsparameters.overlap.pdf")
 include_it(key) = all((
     key.enum_ψREF == "entangled",
     key.nV == key.nH,
-    key.enum_method == "renyi" || key.enum_method == "overlap",
+    any((
+        key.enum_method == "renyi",
+        key.enum_method == "overlap",
+        key.enum_method == "gibbs",
+    )),
     key.nV ≤ 4,
 ))
 
@@ -195,4 +285,100 @@ for (key, curve) in pairs(curves)
         get_args(key)...
     )
 end
+
 Plots.savefig(plt, "thermalstates/infidelityvsparameters.log.pdf")
+
+
+##########################################################################################
+#= PLOT SOME DATA: Same as above but playing with what gets color and style. =#
+
+include_it(key) = all((
+    key.enum_ψREF == "entangled",
+    key.nV == key.nH,
+    any((
+        key.enum_method == "renyi",
+        key.enum_method == "overlap",
+        key.enum_method == "gibbs",
+    )),
+    key.nV ≤ 4,
+))
+
+function get_args(key)
+    args = Dict{Symbol,Any}()
+
+    args[:linewidth] = 3
+
+    # args[:linestyle] = (
+    #     renyi = :solid,
+    #     overlap = :solid,
+    #     gibbs = :solid,
+    # )[Symbol(key.enum_method)]
+
+    # args[:shape] = (
+    #     renyi = :square,
+    #     overlap = :circle,
+    #     gibbs = :utriangle,
+    # )[Symbol(key.enum_method)]
+
+    args[:seriescolor] = (
+        renyi = 1,
+        overlap = 2,
+        gibbs = 3,
+    )[Symbol(key.enum_method)]
+
+    args[:linestyle] = [
+        :dot,
+        :dashdot,
+        :dash,
+        :solid,
+    ][key.nV]
+    args[:seriesalpha] = 0.8
+
+    args[:label] = all((
+        # key.enum_method == "renyi",
+        key.nV == 4,
+    )) ? (
+        renyi = "Renyi",
+        overlap = "Overlap",
+        gibbs = "Gibbs",
+    )[Symbol(key.enum_method)] : false
+
+    return args
+end
+
+xticks = [1, 10, 100]
+for (key, curve) in pairs(curves)
+    include_it(key) || continue
+    key.enum_method == "renyi" || continue
+    push!(xticks, last(curve[!,:numparams]))
+end
+
+plt = Plots.plot(;
+    xlabel = "ADAPT Iterations",
+    xscale = :log10,
+    xlims = [1, 220],
+    xticks = (xticks, map(string, xticks)),
+    ylabel = "Infidelity",
+    ylims = [1e-16, 1e2],
+    yscale = :log10,
+    yticks = 10.0 .^ (-16:2:2),
+    legend = :bottomright,
+)
+
+for (key, curve) in pairs(curves)
+    include_it(key) || continue
+
+    Plots.plot!(plt,
+        curve[!,:numparams],
+        1 .- curve[!,:q0];  # Worst-case infidelity from lowest-obtained fidelity.
+        get_args(key)...
+    )
+end
+
+# Dummy curves for linestyle.
+Plots.plot!(plt, [0], [-1]; color=:black, lw=3, ls=:dot, label="n=1")
+Plots.plot!(plt, [0], [-1]; color=:black, lw=3, ls=:dashdot, label="n=2")
+Plots.plot!(plt, [0], [-1]; color=:black, lw=3, ls=:dash, label="n=3")
+Plots.plot!(plt, [0], [-1]; color=:black, lw=3, ls=:solid, label="n=4")
+
+Plots.savefig(plt, "thermalstates/infidelityvsparameters.good.pdf")
