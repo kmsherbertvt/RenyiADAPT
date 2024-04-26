@@ -1,2 +1,2 @@
-enum_H,enum_ψREF,enum_pool,enum_method,nV,nH,seed_H,seed_ψ,numparams,numiters,runtime,purity,entropy,distance,fidelity
-twolocal,entangled,twolocal,overlap,4,3,16,16,0,0,0.0,0.5021252976000908,0.6910203747641188,0.4906919522798274,0.3991770827472273
+enum_H,enum_ψREF,enum_pool,enum_method,nV,nH,seed_H,seed_ψ,numparams,numiters,runtime,purity,entropy,distance,fidelity,maxpoolgradient
+twolocal,entangled,twolocal,overlap,4,3,16,16,0,0,0.0,0.5021252976000908,0.6910203747641188,0.4906919522798274,0.39917708274722724,0.06575367467883624

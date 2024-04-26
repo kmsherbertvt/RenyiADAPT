@@ -55,6 +55,7 @@ struct Metrics
     entropy::Float          # vo Neumann entropy of system register.
     distance::Float         # Distance of system register from target state.
     fidelity::Float         # Fidelity of system register with target state.
+    maxpoolgradient::Float  # Maximum gradient in the pool (L∞ norm)
     # TODO: Dynamical Lie Rank?
     # TODO: CNOT count?
     # TODO: A more accurate depth metric?
@@ -90,8 +91,9 @@ function Metrics(trace, pool, ψREF, nH, ρ, ρs, a)
     entropy = real(RenyiADAPT.von_neumann_entropy(σV))
     distance = LinearAlgebra.tr(abs.(ρ .- σV)) / 2
     fidelity = real(LinearAlgebra.tr(sqrt(ρs*σV*ρs)))
+    maxpoolgradient = LinearAlgebra.norm(real.(trace[:scores][a]), Inf)
 
-    return Metrics(L, numiters, runtime, purity, entropy, distance, fidelity)
+    return Metrics(L, numiters, runtime, purity, entropy, distance, fidelity, maxpoolgradient)
 end
 
 ##########################################################################################
