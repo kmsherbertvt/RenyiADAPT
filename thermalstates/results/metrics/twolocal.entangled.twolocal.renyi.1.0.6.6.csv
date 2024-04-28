@@ -1,4 +1,4 @@
-enum_H,enum_ψREF,enum_pool,enum_method,nV,nH,seed_H,seed_ψ,numparams,numiters,runtime,purity,entropy,distance,fidelity
-twolocal,entangled,twolocal,renyi,1,0,6,6,0,0,0.0,1.0,NaN,0.40814088355529554,0.8493365689006904
-twolocal,entangled,twolocal,renyi,1,0,6,6,1,4,0.0005910396575927734,0.9999999999999997,NaN,0.0482857774307692,0.9383166824833894
-twolocal,entangled,twolocal,renyi,1,0,6,6,2,8,0.0027658939361572266,1.0,-2.6645352591003757e-15,0.0480954636228475,0.9385078998397485
+enum_H,enum_ψREF,enum_pool,enum_method,nV,nH,seed_H,seed_ψ,numparams,numiters,runtime,purity,entropy,distance,fidelity,maxpoolgradient
+twolocal,entangled,twolocal,renyi,1,0,6,6,0,0,0.0,1.0,NaN,0.40814088355529554,0.8493365689006904,2.220875793099728
+twolocal,entangled,twolocal,renyi,1,0,6,6,1,4,0.0005910396575927734,0.9999999999999997,NaN,0.0482857774307692,0.9383166824833894,0.25293881872302165
+twolocal,entangled,twolocal,renyi,1,0,6,6,2,8,0.0027658939361572266,1.0,-2.6645352591003757e-15,0.0480954636228475,0.9385078998397485,7.054769542465396e-9

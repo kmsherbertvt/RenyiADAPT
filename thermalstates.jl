@@ -56,10 +56,10 @@ for nV in 4:4; for nH in 1:nV; for seed in 2:20
 end; end; end
 
 # # CALCULATE METRICS - do this to re-calculate metrics on existing data
-# for nV in 1:4; for nH in 1:nV; for seed in 1:20
-#     setup = JOB.Params("twolocal", "entangled", "twolocal", "overlap", nV, nH, seed, seed)
+# for nV in 1:4; for nH in 0:nV; for seed in 1:20; for method in ("renyi", "overlap")
+#     setup = JOB.Params("twolocal", "entangled", "twolocal", method, nV, nH, seed, seed)
 #     JOB.get_dataframe(setup; load=false)
-# end; end; end
+# end; end; end; end
 
 
 # ##########################################################################################
