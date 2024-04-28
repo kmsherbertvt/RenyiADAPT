@@ -196,7 +196,11 @@ for (key, curve) in pairs(curves)
 
     Plots.plot!(plt,
         curve[!, :completion],
-        curve[!, :q2];  # Median pool gradient
+        curve[!, :q2];  # Median pool gradient,
+        ribbon=(
+            curve[!, :q2] .- curve[!, :q1],   # BOTTOM ERROR,
+            curve[!, :q3] .- curve[!, :q2],   # TOP ERROR
+        ),
         get_args(key)...
     )
 end
