@@ -61,6 +61,7 @@ curves = Dict()
 for (key, curve) in pairs(pdf)
     # Skip all dataframes where there's 1 row
     DataFrames.nrow(curve) <= 1 && continue
+    curve[end, :maxpoolgradient] > 1e-3 && continue
 
     # Transform the numparams column into a completion column
     curve = DataFrames.transform(curve, :numparams => (itr -> (itr ./ maximum(itr))) => :completion)
@@ -205,3 +206,48 @@ for (key, curve) in pairs(curves)
     )
 end
 Plots.savefig(plt, "thermalstates/completion.all.pdf")
+
+
+#######################################################
+# Sanity check: plot max and min quartiles
+#######################################################
+include_it(key) = all((
+    key.enum_ψREF == "entangled",
+    key.nV == key.nH,
+    key.enum_method == "renyi" || key.enum_method == "overlap",
+    key.nV == 3 && key.nH == 3,
+))
+
+xticks = [1, 10, 100]
+for (key, curve) in pairs(curves)
+    include_it(key) || continue
+    key.enum_method == "renyi" || continue
+    push!(xticks, last(curve[!, :completion]))
+end
+
+plt = Plots.plot(;
+    xlabel="Completion",
+    # xscale=:log10,
+    xlims=[0, 1],
+    # xticks=(xticks, map(string, xticks)),
+    ylabel="Gradient ∞-norm",
+    ylims=[1e-7, 1e1],
+    yscale=:log10,
+    yticks=10.0 .^ (-16:2:2),
+    legend=:bottomright,
+)
+
+for (key, curve) in pairs(curves)
+    include_it(key) || continue
+
+    Plots.plot!(plt,
+        curve[!, :completion],
+        curve[!, :q2];  # Median pool gradient,
+        ribbon=(
+            curve[!, :q2] .- curve[!, :q0],   # BOTTOM ERROR,
+            curve[!, :q4] .- curve[!, :q2],   # TOP ERROR
+        ),
+        get_args(key)...
+    )
+end
+Plots.savefig(plt, "thermalstates/completion.allquartiles.pdf")
