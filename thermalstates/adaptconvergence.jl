@@ -55,6 +55,8 @@ pdf = DataFrames.groupby(df, [
     :enum_method,
     :nV,
     :nH,
+    :seed_H,
+    :seed_ψ,
 ])
 
 curves = Dict()
@@ -103,88 +105,205 @@ end
 
 
 
+# ##########################################################################################
+# #= PLOT SOME DATA: Log-y plot with ribbons. =#
+
+# plt = Plots.plot(;
+#     xlabel="Completion",
+#     ylabel="Gradient ∞-norm",
+#     ylims=[1e-7, 1e1],
+#     yscale=:log10,
+#     yticks=10.0 .^ (-16:2:2),
+#     legend=:bottomright,
+# )
+
+# for (key, curve) in pairs(curves)
+#     key.enum_ψREF == "entangled" || continue
+#     key.nV == key.nH || continue
+#     key.enum_method == "renyi" || continue
+#     key.nV == 3 && key.nH == 3 || continue
+
+#     Plots.plot!(plt,
+#         curve[!, :completion],
+#         curve[!, :q2];
+#         ribbon=(
+#             curve[!, :q2] .- curve[!, :q1],   # BOTTOM ERROR
+#             curve[!, :q3] .- curve[!, :q2],   # TOP ERROR
+#         ),
+#         get_args(key)...
+#     )
+# end
+# Plots.savefig(plt, "thermalstates/completion.renyi.pdf")
+
+
+
+# plt = Plots.plot(;
+#     xlabel="Completion",
+#     ylabel="Gradient ∞-norm",
+#     ylims=[1e-7, 1e1],
+#     yscale=:log10,
+#     yticks=10.0 .^ (-16:2:2),
+#     legend=:bottomright,
+# )
+
+# for (key, curve) in pairs(curves)
+#     key.enum_ψREF == "entangled" || continue
+#     key.nV == key.nH || continue
+#     key.enum_method == "overlap" || continue
+#     key.nV == 3 && key.nH == 3 || continue
+
+#     Plots.plot!(plt,
+#         curve[!, :completion],
+#         curve[!, :q2];
+#         ribbon=(
+#             curve[!, :q2] .- curve[!, :q1],   # BOTTOM ERROR
+#             curve[!, :q3] .- curve[!, :q2],   # TOP ERROR
+#         ),
+#         get_args(key)...
+#     )
+# end
+# Plots.savefig(plt, "thermalstates/completion.overlap.pdf")
+
+
+# ##########################################################################################
+# #= PLOT SOME DATA: Full log plot sans ribbons. Plot max infidelity rather than median. =#
+
+# include_it(key) = all((
+#     key.enum_ψREF == "entangled",
+#     key.nV == key.nH,
+#     key.enum_method == "renyi" || key.enum_method == "overlap",
+#     key.nV == 3 && key.nH == 3,
+# ))
+
+# xticks = [1, 10, 100]
+# for (key, curve) in pairs(curves)
+#     include_it(key) || continue
+#     key.enum_method == "renyi" || continue
+#     push!(xticks, last(curve[!, :completion]))
+# end
+
+# plt = Plots.plot(;
+#     xlabel="Completion",
+#     # xscale=:log10,
+#     xlims=[0, 1],
+#     # xticks=(xticks, map(string, xticks)),
+#     ylabel="Gradient ∞-norm",
+#     ylims=[1e-7, 1e1],
+#     yscale=:log10,
+#     yticks=10.0 .^ (-16:2:2),
+#     legend=:bottomright,
+# )
+
+# for (key, curve) in pairs(curves)
+#     include_it(key) || continue
+
+#     Plots.plot!(plt,
+#         curve[!, :completion],
+#         curve[!, :q2];  # Median pool gradient,
+#         ribbon=(
+#             curve[!, :q2] .- curve[!, :q1],   # BOTTOM ERROR,
+#             curve[!, :q3] .- curve[!, :q2],   # TOP ERROR
+#         ),
+#         get_args(key)...
+#     )
+# end
+# Plots.savefig(plt, "thermalstates/completion.all.pdf")
+
+
+# #######################################################
+# # Sanity check: plot max and min quartiles
+# #######################################################
+# include_it(key) = all((
+#     key.enum_ψREF == "entangled",
+#     key.nV == key.nH,
+#     key.enum_method == "renyi" || key.enum_method == "overlap",
+#     key.nV == 3 && key.nH == 3,
+# ))
+
+# xticks = [1, 10, 100]
+# for (key, curve) in pairs(curves)
+#     include_it(key) || continue
+#     key.enum_method == "renyi" || continue
+#     push!(xticks, last(curve[!, :completion]))
+# end
+
+# plt = Plots.plot(;
+#     xlabel="Completion",
+#     # xscale=:log10,
+#     xlims=[0, 1],
+#     # xticks=(xticks, map(string, xticks)),
+#     ylabel="Gradient ∞-norm",
+#     ylims=[1e-7, 1e1],
+#     yscale=:log10,
+#     yticks=10.0 .^ (-16:2:2),
+#     legend=:bottomright,
+# )
+
+# for (key, curve) in pairs(curves)
+#     include_it(key) || continue
+
+#     Plots.plot!(plt,
+#         curve[!, :completion],
+#         curve[!, :q2];  # Median pool gradient,
+#         ribbon=(
+#             curve[!, :q2] .- curve[!, :q0],   # BOTTOM ERROR,
+#             curve[!, :q4] .- curve[!, :q2],   # TOP ERROR
+#         ),
+#         get_args(key)...
+#     )
+# end
+# Plots.savefig(plt, "thermalstates/completion.allquartiles.pdf")
+
+
 ##########################################################################################
-#= PLOT SOME DATA: Log-y plot with ribbons. =#
+#= Scatter plot each curve, score against % convergence. =#
 
-plt = Plots.plot(;
-    xlabel="Completion",
-    ylabel="Gradient ∞-norm",
-    ylims=[1e-7, 1e1],
-    yscale=:log10,
-    yticks=10.0 .^ (-16:2:2),
-    legend=:bottomright,
-)
+function get_args(key)
+    args = Dict{Symbol,Any}()
 
-for (key, curve) in pairs(curves)
-    key.enum_ψREF == "entangled" || continue
-    key.nV == key.nH || continue
-    key.enum_method == "renyi" || continue
-    key.nV == 3 && key.nH == 3 || continue
+    args[:lw] = 1
+    args[:msw] = 0
+    args[:ms] = 3
 
-    Plots.plot!(plt,
-        curve[!, :completion],
-        curve[!, :q2];
-        ribbon=(
-            curve[!, :q2] .- curve[!, :q1],   # BOTTOM ERROR
-            curve[!, :q3] .- curve[!, :q2],   # TOP ERROR
-        ),
-        get_args(key)...
-    )
+    args[:shape] = (
+        renyi = :square,
+        overlap = :circle,
+        gibbs = :utriangle,
+    )[Symbol(key.enum_method)]
+
+    color_idx = (
+        renyi = 1,
+        overlap = 2,
+        gibbs = 3,
+    )[Symbol(key.enum_method)]
+
+    args[:seriescolor] = ColorSchemes.tab10[color_idx]
+    args[:seriesalpha] = 0.8
+    args[:linealpha] = 0.4
+
+    args[:label] = key.seed_H == 1 ? (
+        renyi = "Renyi",
+        overlap = "Overlap",
+        gibbs = "Gibbs",
+    )[Symbol(key.enum_method)] : false
+
+    return args
 end
-Plots.savefig(plt, "thermalstates/completion.renyi.pdf")
-
-
-
-plt = Plots.plot(;
-    xlabel="Completion",
-    ylabel="Gradient ∞-norm",
-    ylims=[1e-7, 1e1],
-    yscale=:log10,
-    yticks=10.0 .^ (-16:2:2),
-    legend=:bottomright,
-)
-
-for (key, curve) in pairs(curves)
-    key.enum_ψREF == "entangled" || continue
-    key.nV == key.nH || continue
-    key.enum_method == "overlap" || continue
-    key.nV == 3 && key.nH == 3 || continue
-
-    Plots.plot!(plt,
-        curve[!, :completion],
-        curve[!, :q2];
-        ribbon=(
-            curve[!, :q2] .- curve[!, :q1],   # BOTTOM ERROR
-            curve[!, :q3] .- curve[!, :q2],   # TOP ERROR
-        ),
-        get_args(key)...
-    )
-end
-Plots.savefig(plt, "thermalstates/completion.overlap.pdf")
-
-
-##########################################################################################
-#= PLOT SOME DATA: Full log plot sans ribbons. Plot max infidelity rather than median. =#
 
 include_it(key) = all((
     key.enum_ψREF == "entangled",
     key.nV == key.nH,
-    key.enum_method == "renyi" || key.enum_method == "overlap",
+    any((
+        key.enum_method == "renyi",
+        key.enum_method == "overlap",
+        key.enum_method == "gibbs",
+    )),
     key.nV == 3 && key.nH == 3,
 ))
 
-xticks = [1, 10, 100]
-for (key, curve) in pairs(curves)
-    include_it(key) || continue
-    key.enum_method == "renyi" || continue
-    push!(xticks, last(curve[!, :completion]))
-end
-
 plt = Plots.plot(;
     xlabel="Completion",
-    # xscale=:log10,
     xlims=[0, 1],
-    # xticks=(xticks, map(string, xticks)),
     ylabel="Gradient ∞-norm",
     ylims=[1e-7, 1e1],
     yscale=:log10,
@@ -197,57 +316,8 @@ for (key, curve) in pairs(curves)
 
     Plots.plot!(plt,
         curve[!, :completion],
-        curve[!, :q2];  # Median pool gradient,
-        ribbon=(
-            curve[!, :q2] .- curve[!, :q1],   # BOTTOM ERROR,
-            curve[!, :q3] .- curve[!, :q2],   # TOP ERROR
-        ),
+        curve[!, :q2];  # Median pool gradient. 'course, it is a median of one here...
         get_args(key)...
     )
 end
-Plots.savefig(plt, "thermalstates/completion.all.pdf")
-
-
-#######################################################
-# Sanity check: plot max and min quartiles
-#######################################################
-include_it(key) = all((
-    key.enum_ψREF == "entangled",
-    key.nV == key.nH,
-    key.enum_method == "renyi" || key.enum_method == "overlap",
-    key.nV == 3 && key.nH == 3,
-))
-
-xticks = [1, 10, 100]
-for (key, curve) in pairs(curves)
-    include_it(key) || continue
-    key.enum_method == "renyi" || continue
-    push!(xticks, last(curve[!, :completion]))
-end
-
-plt = Plots.plot(;
-    xlabel="Completion",
-    # xscale=:log10,
-    xlims=[0, 1],
-    # xticks=(xticks, map(string, xticks)),
-    ylabel="Gradient ∞-norm",
-    ylims=[1e-7, 1e1],
-    yscale=:log10,
-    yticks=10.0 .^ (-16:2:2),
-    legend=:bottomright,
-)
-
-for (key, curve) in pairs(curves)
-    include_it(key) || continue
-
-    Plots.plot!(plt,
-        curve[!, :completion],
-        curve[!, :q2];  # Median pool gradient,
-        ribbon=(
-            curve[!, :q2] .- curve[!, :q0],   # BOTTOM ERROR,
-            curve[!, :q4] .- curve[!, :q2],   # TOP ERROR
-        ),
-        get_args(key)...
-    )
-end
-Plots.savefig(plt, "thermalstates/completion.allquartiles.pdf")
+Plots.savefig(plt, "thermalstates/completion.scatter.pdf")
