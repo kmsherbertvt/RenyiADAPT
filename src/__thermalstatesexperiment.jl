@@ -263,11 +263,12 @@ function get_adapt(setup::Params; more_callbacks=ADAPT.AbstractCallback[], run=f
 
         --- -------- ---
         """)
-    end
 
-    # Save a checkpoint.
-    Serialization.serialize("$ANSATZ/$name", ansatz)
-    Serialization.serialize("$TRACE/$name", trace)
+        # Save a checkpoint. Only necessary if ADAPT updated our ansatz
+        # and trace data
+        Serialization.serialize("$ANSATZ/$name", ansatz)
+        Serialization.serialize("$TRACE/$name", trace)
+    end
 
     return ansatz,trace,adapt,vqe,pool,observable,reference,callbacks
 end
