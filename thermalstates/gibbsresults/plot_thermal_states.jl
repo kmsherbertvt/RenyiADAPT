@@ -17,11 +17,13 @@ df2 = DataFrames.DataFrame()
 df3 = DataFrames.DataFrame()
 df4 = DataFrames.DataFrame()
 
-for nV in 1:3
+for nV in 1:4
     for nH in nV:nV
         for seed in 1:20
-            filename = "../Gibbs/results/nV_"*string(nV)*"_nH_"*string(nH)*"_seed_"*string(seed)*"infidelity_vs_params.dat"
+            nV >= 4 && seed > 1 && continue            
+            filename = "../Gibbs/gibbsresults/nV_"*string(nV)*"_nH_"*string(nH)*"_seed_"*string(seed)*"infidelity_vs_params.dat"
             mydata = readdlm(filename,Float64)
+            mydata[:,2] = 1.0 .- mydata[:,2]
             header = [:numparams,:fidelity]
             my_df = DataFrames.DataFrame(mydata,vec(header))
             
@@ -31,26 +33,12 @@ for nV in 1:3
                 append!(df2, my_df)
             elseif nV == 3
                 append!(df3, my_df)
-            end
-        end
-    end
-end
-
-for nV in 4:4
-    for nH in nV:nV
-        for seed in 1:1
-            filename = "../Gibbs/results/nV_"*string(nV)*"_nH_"*string(nH)*"_seed_"*string(seed)*"infidelity_vs_params.dat"
-            mydata = readdlm(filename,Float64)
-            header = [:numparams,:fidelity]
-            my_df = DataFrames.DataFrame(mydata,vec(header))
-            
-            if nV == 4
+            elseif nV == 4
                 append!(df4, my_df)
             end
         end
     end
 end
-
 
 curves = Dict()
 
@@ -119,13 +107,13 @@ end
 for (key, curve) in pairs(curves)
     Plots.plot!(plt,
         curve[!,:numparams],
-        curve[!,:q2];
-        ribbon = (
-            curve[!,:q2] .- curve[!,:q3],   # BOTTOM ERROR
-            curve[!,:q1] .- curve[!,:q2],   # TOP ERROR
-        ),
+        1.0 .- curve[!,:q0];
+#         ribbon = (
+#             curve[!,:q2] .- curve[!,:q3],   # BOTTOM ERROR
+#             curve[!,:q1] .- curve[!,:q2],   # TOP ERROR
+#         ),
         get_args(key)...
     )
 end
 
-Plots.savefig(plt, "../Gibbs/GibbsADAPT_infidelity_vs_params.pdf")           
+Plots.savefig(plt, "../Gibbs/infidelity_vs_params.pdf")           
