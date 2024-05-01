@@ -98,8 +98,12 @@ for file in readdir(JOB.TRACE, join=true)
 end
 
 # ADD IN Karunya's DATA
-include("./gibbsGnormdf.jl")
-append!(df, gibbs_df)
+# include("./gibbsGnormdf.jl")
+# append!(df, gibbs_df)
+filename = "thermalstates/gibbsresults/csv/largest_pool_grad_first_steps.csv"
+Gibbs_csv = CSV.File(filename)
+append!(df, DataFrames.DataFrame(Gibbs_csv))
+
 
 # SET A COLUMN EXPLICITLY GIVING THE DISTANCE TO A FULLY CONTROLLABLE SYSTEM
 df[!,:Δn] = df[!,:nV] .- df[!,:nH]

@@ -18,11 +18,11 @@ include("src/Hamiltonian_and_Pool.jl")
 
 temperature = 1.0
 expansion_order = 5
-write_infidelity = true; write_grad = true
+write_infidelity = true; write_grad = true; write_all_pool_grads = true
 
-for nV in 1:4
+for nV in 1:6
     for seed in 1:20
-        nV >= 4 && seed > 1 && continue
+        nV > 5 && seed > 1 && continue
         
         # COMPARE TO EXACT THERMAL STATE
         exact_filename = "thermalstates/setup/thermalstates/twolocal."*string(nV)*"."*string(seed)*".npy"
@@ -31,6 +31,7 @@ for nV in 1:4
         for nH in nV:nV
             infidelity_output = "thermalstates/gibbsresults/nV_"*string(nV)*"_nH_"*string(nH)*"_seed_"*string(seed)*"infidelity_vs_params.dat"
             gradient_output = "thermalstates/gibbsresults/max_gradients/nV_"*string(nV)*"_nH_"*string(nH)*"_seed_"*string(seed)*"_maxgrads.dat"
+            pool_grads_output = "thermalstates/gibbsresults/gradients/nV_"*string(nV)*"_nH_"*string(nH)*"_seed_"*string(seed)*"_pool_grads.dat"
 
             t_0 = time()
             println("\nnV = $nV, nH = $nH, seed = $seed")
@@ -58,7 +59,7 @@ for nV in 1:4
             ansatz = ADAPT.Ansatz(Float64, pool)
             
             # RUN THE ALGORITHM
-            (final_objective, final_state, final_ansatz, adapt_converged) = adapt_vqe(Obj_objective, pool, ψREF, ansatz, Obj_gibbs_state_fidelity, exact_gibbs, write_infidelity, write_grad, infidelity_output, gradient_output)
+            (final_objective, final_state, final_ansatz, adapt_converged) = adapt_vqe(Obj_objective, pool, ψREF, ansatz, Obj_gibbs_state_fidelity, exact_gibbs, write_infidelity, write_grad, write_all_pool_grads, infidelity_output, gradient_output, pool_grads_output)
             
             # RESULTS
             ADAPT_Gibbs_state = density_operator(final_state, nH, nV)
