@@ -1,0 +1,16 @@
+enum_H,enum_ψREF,enum_pool,enum_method,nV,nH,seed_H,seed_ψ,numparams,numiters,runtime,purity,entropy,distance,fidelity,maxpoolgradient
+twolocal,entangled,twolocal,gibbs,2,2,7,7,1,0,0.0,0.0,0.0,0.0,0.4259566688540386,0.0
+twolocal,entangled,twolocal,gibbs,2,2,7,7,2,0,0.0,0.0,0.0,0.0,0.4829835560192737,0.0
+twolocal,entangled,twolocal,gibbs,2,2,7,7,3,0,0.0,0.0,0.0,0.0,0.5447757105212269,0.0
+twolocal,entangled,twolocal,gibbs,2,2,7,7,4,0,0.0,0.0,0.0,0.0,0.5593014478536823,0.0
+twolocal,entangled,twolocal,gibbs,2,2,7,7,5,0,0.0,0.0,0.0,0.0,0.5741230509939151,0.0
+twolocal,entangled,twolocal,gibbs,2,2,7,7,6,0,0.0,0.0,0.0,0.0,0.5780115939334953,0.0
+twolocal,entangled,twolocal,gibbs,2,2,7,7,7,0,0.0,0.0,0.0,0.0,0.8659878984336994,0.0
+twolocal,entangled,twolocal,gibbs,2,2,7,7,8,0,0.0,0.0,0.0,0.0,0.870049906672535,0.0
+twolocal,entangled,twolocal,gibbs,2,2,7,7,9,0,0.0,0.0,0.0,0.0,0.8771351481943308,0.0
+twolocal,entangled,twolocal,gibbs,2,2,7,7,10,0,0.0,0.0,0.0,0.0,0.8763868611081681,0.0
+twolocal,entangled,twolocal,gibbs,2,2,7,7,11,0,0.0,0.0,0.0,0.0,0.995560535704361,0.0
+twolocal,entangled,twolocal,gibbs,2,2,7,7,12,0,0.0,0.0,0.0,0.0,0.9981733122823883,0.0
+twolocal,entangled,twolocal,gibbs,2,2,7,7,13,0,0.0,0.0,0.0,0.0,0.9997267149658162,0.0
+twolocal,entangled,twolocal,gibbs,2,2,7,7,14,0,0.0,0.0,0.0,0.0,0.9999210884253215,0.0
+twolocal,entangled,twolocal,gibbs,2,2,7,7,15,0,0.0,0.0,0.0,0.0,0.999996862313307,0.0

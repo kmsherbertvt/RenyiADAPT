@@ -1,0 +1,4 @@
+enum_H,enum_ψREF,enum_pool,enum_method,nV,nH,seed_H,seed_ψ,numparams,numiters,runtime,purity,entropy,distance,fidelity,maxpoolgradient
+twolocal,entangled,twolocal,gibbs,1,1,10,10,1,0,0.0,0.0,0.0,0.0,0.9274300159078518,0.0
+twolocal,entangled,twolocal,gibbs,1,1,10,10,2,0,0.0,0.0,0.0,0.0,0.9289347829640762,0.0
+twolocal,entangled,twolocal,gibbs,1,1,10,10,3,0,0.0,0.0,0.0,0.0,0.9999998074014034,0.0

@@ -29,6 +29,19 @@ for file in readdir(JOB.METRIC, join=true)
     end
 end
 
+# ADD IN Karunya's GIBBS-ADAPT PLOTS
+
+for nV in 1:4
+    for nH in nV:nV
+        for seed in 1:20
+            nV >= 4 && seed > 1 && continue            
+            filename = "thermalstates/gibbsresults/csv/twolocal.entangled.twolocal.gibbs."*string(nV)*"."*string(nH)*"."*string(seed)*"."*string(seed)*".csv"
+            Gibbs_csv = CSV.File(filename)
+            append!(df, DataFrames.DataFrame(Gibbs_csv))
+        end
+    end
+end
+
 ##########################################################################################
 #= PREPARE FOR PLOTTING =#
 
