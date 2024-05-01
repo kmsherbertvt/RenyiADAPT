@@ -5,7 +5,7 @@ using FiniteDifferences
 
 include("Ansatz.jl")
 
-function adapt_vqe(objective_func::ModifiedObjective, pool::Vector{Vector{ScaledPauli{N}}}, reference_ket, ansatz, true_objective::GibbsStateFidelity, true_thermal_state, write_infidelity, write_grad, infidelity_logfile, gradient_logfile, adapt_thresh= 1e-3, adapt_maxiter = 300) where {N}
+function adapt_vqe(objective_func::ModifiedObjective, pool::Vector{Vector{ScaledPauli{N}}}, reference_ket, ansatz, true_objective::GibbsStateFidelity, true_thermal_state, write_infidelity, write_grad, write_poolgrads, infidelity_logfile, gradient_logfile, poolgradient_logfile, adapt_thresh= 1e-3, adapt_maxiter = 1) where {N}
     """
     Performs ADAPT-VQE algorithm
 
@@ -31,7 +31,8 @@ function adapt_vqe(objective_func::ModifiedObjective, pool::Vector{Vector{Scaled
     println("ADAPT starting")
     
     if write_infidelity infid_io = open(infidelity_logfile,"w") end
-    if write_grad grad_io = open(gradient_logfile,"w") end    
+    if write_grad grad_io = open(gradient_logfile,"w") end   
+    if write_poolgrads poolgrad_io = open(poolgradient_logfile,"w") end       
     
     println("Reference state objective value: ", modified_objective(objective_func, reference_ket))
     println("Reference state fidelity value: ", fidelity(true_objective, reference_ket))
@@ -48,11 +49,11 @@ function adapt_vqe(objective_func::ModifiedObjective, pool::Vector{Vector{Scaled
         grad = gradient(PSA, zeros(length(pool)))  # analytical gradient
         
         # write out the gradients
-#         if write_output write(io, string(n_iter)) end              
-#         for i in range(1,length(grad))
-#             if write_output write(io, "\t"*string(abs(grad[i]))) end              
-#         end
-#         if write_output write(io, "\n") end
+        if write_poolgrads write(poolgrad_io, string(n_iter)) end              
+        for i in range(1,length(grad))
+            if write_poolgrads write(poolgrad_io, "\t"*string(abs(grad[i]))) end              
+        end
+        if write_poolgrads write(poolgrad_io, "\n") end
 
         grad_norm = norm(grad); 
         # println("\tGrad norm", grad_norm); println("\tMax grad",maximum(abs.(grad)))
@@ -68,8 +69,6 @@ function adapt_vqe(objective_func::ModifiedObjective, pool::Vector{Vector{Scaled
         if write_grad write(grad_io, string(n_iter)*"\t", string(maximum(abs.(grad)))*"\t", string(next_op_idx)*"\n") end    
 
         PSA_trial = ParameterShiftAnsatz(objective_func, copy(ansatz.generators), ones(length(ansatz.generators)), reference_ket)
-        
-#         grad = similar(ansatz.parameters)
         
         # RUN OPTIMIZATION
         result = optimize(
@@ -94,7 +93,8 @@ function adapt_vqe(objective_func::ModifiedObjective, pool::Vector{Vector{Scaled
     println("Final fidelity value: ", fidelity(true_objective, curr_state))
     
     if write_infidelity close(infid_io) end
-    if write_grad close(grad_io) end    
+    if write_grad close(grad_io) end   
+    if write_poolgrads close(poolgrad_io) end            
     
     return (final_objective, curr_state, ansatz, converged)
 end    

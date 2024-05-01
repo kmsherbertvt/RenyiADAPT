@@ -73,10 +73,10 @@ firststeps_df = DataFrames.DataFrame(
     :fidelity => Float[],
     :distance => Float[],
 )
-for nV in 1:7
+for nV in 1:6
     for nH in nV:nV
         for seed in 1:20
-            nV ≥ 4 && seed > 1 && continue
+            nV ≥ 6 && seed > 1 && continue
             setup = Params(
                 "twolocal",
                 "entangled",
