@@ -89,6 +89,19 @@ name_O = JOB.name_result(setup_O)
 ansatz_vO = Serialization.deserialize("thermalstates/vqe/ansatze/$name_O")
 trace_vO = Serialization.deserialize("thermalstates/vqe/traces/$name_O")
 
+#= LOAD Karunya's GIBBS-ADAPT DATA =#
+    
+import DelimitedFiles: readdlm
+    
+filename1 = "thermalstates/gibbsresults/loss/nV_"*string(nV)*"_nH_"*string(nH)*"_seed_"*string(seed_H)*"_ADAPT_loss.dat"
+filename2 = "thermalstates/gibbsresults/loss/nV_"*string(nV)*"_nH_"*string(nH)*"_seed_"*string(seed_H)*"_ADAPT_steps.dat"
+filename3 = "thermalstates/gibbsresults/loss/nV_"*string(nV)*"_nH_"*string(nH)*"_seed_"*string(seed_H)*"_VQE_loss.dat"
+
+ADAPTloss_data = readdlm(filename1,Float64)
+ADAPTsteps_data = readdlm(filename2,Float64)
+VQEloss_data = readdlm(filename3,Float64)
+
+    
 ##########################################################################################
 #= PLOT THE TRACES!
 
@@ -206,3 +219,34 @@ Plots.plot!(plt,
 )
 
 Plots.savefig(plt, "thermalstates/optimization.overlap.pdf")
+    
+    
+# PLOT GIBBS
+    
+plt = Plots.plot(;
+    xlabel = "BFGS Iterations",
+    ylabel = "Loss Function - Min Loss Function",
+    ylims = [1e-16, 1e2],
+    yscale = :log10,
+    yticks = 10.0 .^ (-16:2:2),
+    legend = :bottom,
+)
+    
+color = 3
+shape = :utriangle
+label = "Gibbs"
+
+Plots.plot!(plt,
+    ADAPTloss_data[:,2] .- ADAPTloss_data[:,1];
+    lw=2, ls=:solid, label="ADAPT loss", color=color,
+)
+Plots.scatter!(plt,
+    ADAPTsteps_data[:,1],
+    ADAPTsteps_data[:,2];
+    label="ADAPT step", shape=shape, color=color,
+)
+Plots.plot!(plt,
+    VQEloss_data[:,2] .- VQEloss_data[:,1];
+    lw=2, ls=:dot, label="VQE loss", color=color,
+)
+Plots.savefig(plt, "thermalstates/optimization.gibbs.pdf")
