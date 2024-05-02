@@ -256,12 +256,17 @@ function get_args(key)
         gibbs = 3,
     )[Symbol(key.enum_method)]
 
-    args[:linestyle] = [
-        :dot,
-        :dashdot,
-        :dash,
-        :solid,
-    ][key.nV]
+    # args[:linestyle] = [
+    #     :dot,
+    #     :dashdot,
+    #     :dash,
+    #     :solid,
+    # ][key.nV]
+    # args[:markershape] = key.nV <= 2 ? (
+    #     renyi = :square,
+    #     gibbs = :utriangle,
+    #     overlap = :circle,
+    # )[Symbol(key.enum_method)] : :none
     args[:seriesalpha] = 0.8
 
     args[:label] = all((
@@ -289,10 +294,11 @@ plt = Plots.plot(;
     xlims = [1, 220],
     xticks = (xticks, map(string, xticks)),
     ylabel = "Infidelity",
-    ylims = [1e-16, 1e2],
+    ylims = [1e-7, 1.1],
     yscale = :log10,
-    yticks = 10.0 .^ (-16:2:2),
-    legend = :bottomright,
+    yticks = 10.0 .^ (-7:1:1),
+    legend = :outerbottom,
+    legendcolumns = 3
 )
 
 for (key, curve) in pairs(curves)
@@ -305,10 +311,16 @@ for (key, curve) in pairs(curves)
     )
 end
 
+# Text for annotating n convergence locations
+Plots.annotate!(plt, 1.2, 1e-5, Plots.text("n=1", :gray, :left, 8))
+Plots.annotate!(plt, 8, 1e-5, Plots.text("n=2", :gray, :left, 8))
+Plots.annotate!(plt, 30, 1e-5, Plots.text("n=3", :gray, :left, 8))
+Plots.annotate!(plt, 100, 1e-4, Plots.text("n=4", :gray, :left, 8))
+
 # Dummy curves for linestyle.
-Plots.plot!(plt, [0], [-1]; color=:black, lw=3, ls=:dot, label="n=1")
-Plots.plot!(plt, [0], [-1]; color=:black, lw=3, ls=:dashdot, label="n=2")
-Plots.plot!(plt, [0], [-1]; color=:black, lw=3, ls=:dash, label="n=3")
-Plots.plot!(plt, [0], [-1]; color=:black, lw=3, ls=:solid, label="n=4")
+# Plots.plot!(plt, [0], [-1]; color=:black, lw=3, ls=:dot, label="n=1")
+# Plots.plot!(plt, [0], [-1]; color=:black, lw=3, ls=:dashdot, label="n=2")
+# Plots.plot!(plt, [0], [-1]; color=:black, lw=3, ls=:dash, label="n=3")
+# Plots.plot!(plt, [0], [-1]; color=:black, lw=3, ls=:solid, label="n=4")
 
 Plots.savefig(plt, "thermalstates/infidelityvsparameters.good.pdf")
