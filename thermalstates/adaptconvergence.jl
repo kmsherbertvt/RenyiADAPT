@@ -334,3 +334,72 @@ for (key, curve) in pairs(curves)
     )
 end
 Plots.savefig(plt, "thermalstates/completion.scatter.pdf")
+
+
+
+##########################################################################################
+#= Scatter plot each curve, score against % convergence. =#
+
+function get_args(key)
+    args = Dict{Symbol,Any}()
+
+    args[:lw] = 1
+    args[:msw] = 0
+    args[:ms] = 3
+
+    args[:shape] = (
+        renyi = :square,
+        overlap = :circle,
+        gibbs = :utriangle,
+    )[Symbol(key.enum_method)]
+
+    color_idx = (
+        renyi = 1,
+        overlap = 2,
+        gibbs = 3,
+    )[Symbol(key.enum_method)]
+
+    args[:seriescolor] = ColorSchemes.tab10[color_idx]
+    args[:seriesalpha] = 0.8
+    args[:linealpha] = 0.4
+
+    args[:label] = key.seed_H == 1 ? (
+        renyi = "Renyi",
+        overlap = "Overlap",
+        gibbs = "Gibbs",
+    )[Symbol(key.enum_method)] : false
+
+    return args
+end
+
+include_it(key) = all((
+    key.enum_ψREF == "entangled",
+    key.nV == key.nH,
+    any((
+        key.enum_method == "renyi",
+        key.enum_method == "overlap",
+        key.enum_method == "gibbs",
+    )),
+    key.nV == 3 && key.nH == 3,
+))
+
+plt = Plots.plot(;
+    xlabel="Completion",
+    xlims=[0.7, 1.01],
+    ylabel="Gradient ∞-norm",
+    ylims=[1e-7, 1e1],
+    yscale=:log10,
+    yticks=10.0 .^ (-16:2:2),
+    legend=:bottomleft,
+)
+
+for (key, curve) in pairs(curves)
+    include_it(key) || continue
+
+    Plots.plot!(plt,
+        curve[!, :completion],
+        curve[!, :q2];  # Median pool gradient. 'course, it is a median of one here...
+        get_args(key)...
+    )
+end
+Plots.savefig(plt, "thermalstates/completion.tighter.pdf")

@@ -113,110 +113,110 @@ end
 
 
 
-##########################################################################################
-#= PLOT SOME DATA: Log-y plot with ribbons. =#
+# ##########################################################################################
+# #= PLOT SOME DATA: Log-y plot with ribbons. =#
 
-plt = Plots.plot(;
-    xlabel = "ADAPT Iterations",
-    ylabel = "Infidelity",
-    ylims = [1e-16, 1e2],
-    yscale = :log10,
-    yticks = 10.0 .^ (-16:2:2),
-    legend = :bottomright,
-)
+# plt = Plots.plot(;
+#     xlabel = "ADAPT Iterations",
+#     ylabel = "Infidelity",
+#     ylims = [1e-16, 1e2],
+#     yscale = :log10,
+#     yticks = 10.0 .^ (-16:2:2),
+#     legend = :bottomright,
+# )
 
-for (key, curve) in pairs(curves)
-    key.enum_ψREF == "entangled" || continue
-    key.nV == key.nH || continue
-    key.enum_method == "renyi" || continue
-    key.nV ≤ 4 || continue
+# for (key, curve) in pairs(curves)
+#     key.enum_ψREF == "entangled" || continue
+#     key.nV == key.nH || continue
+#     key.enum_method == "renyi" || continue
+#     key.nV ≤ 4 || continue
 
-    Plots.plot!(plt,
-        curve[!,:numparams],
-        1 .- curve[!,:q2];
-        ribbon = (
-            curve[!,:q3] .- curve[!,:q2],   # BOTTOM ERROR (backwards 'cause INfidelity)
-            curve[!,:q2] .- curve[!,:q1],   # TOP ERROR (backwards 'cause INfidelity)
-        ),
-        get_args(key)...
-    )
-end
-Plots.savefig(plt, "thermalstates/infidelityvsparameters.renyi.pdf")
-
-
-
-plt = Plots.plot(;
-    xlabel = "ADAPT Iterations",
-    ylabel = "Infidelity",
-    ylims = [1e-16, 1e2],
-    yscale = :log10,
-    yticks = 10.0 .^ (-16:2:2),
-    legend = :bottomright,
-)
-
-for (key, curve) in pairs(curves)
-    key.enum_ψREF == "entangled" || continue
-    key.nV == key.nH || continue
-    key.enum_method == "overlap" || continue
-    key.nV ≤ 4 || continue
-
-    Plots.plot!(plt,
-        curve[!,:numparams],
-        1 .- curve[!,:q2];
-        ribbon = (
-            curve[!,:q3] .- curve[!,:q2],   # BOTTOM ERROR (backwards 'cause INfidelity)
-            curve[!,:q2] .- curve[!,:q1],   # TOP ERROR (backwards 'cause INfidelity)
-        ),
-        get_args(key)...
-    )
-end
-Plots.savefig(plt, "thermalstates/infidelityvsparameters.overlap.pdf")
+#     Plots.plot!(plt,
+#         curve[!,:numparams],
+#         1 .- curve[!,:q2];
+#         ribbon = (
+#             curve[!,:q3] .- curve[!,:q2],   # BOTTOM ERROR (backwards 'cause INfidelity)
+#             curve[!,:q2] .- curve[!,:q1],   # TOP ERROR (backwards 'cause INfidelity)
+#         ),
+#         get_args(key)...
+#     )
+# end
+# Plots.savefig(plt, "thermalstates/infidelityvsparameters.renyi.pdf")
 
 
-##########################################################################################
-#= PLOT SOME DATA: Full log plot sans ribbons. Plot max infidelity rather than median. =#
 
-include_it(key) = all((
-    key.enum_ψREF == "entangled",
-    key.nV == key.nH,
-    any((
-        key.enum_method == "renyi",
-        key.enum_method == "overlap",
-        key.enum_method == "gibbs",
-    )),
-    key.nV ≤ 4,
-))
+# plt = Plots.plot(;
+#     xlabel = "ADAPT Iterations",
+#     ylabel = "Infidelity",
+#     ylims = [1e-16, 1e2],
+#     yscale = :log10,
+#     yticks = 10.0 .^ (-16:2:2),
+#     legend = :bottomright,
+# )
 
-xticks = [1, 10, 100]
-for (key, curve) in pairs(curves)
-    include_it(key) || continue
-    key.enum_method == "renyi" || continue
-    push!(xticks, last(curve[!,:numparams]))
-end
+# for (key, curve) in pairs(curves)
+#     key.enum_ψREF == "entangled" || continue
+#     key.nV == key.nH || continue
+#     key.enum_method == "overlap" || continue
+#     key.nV ≤ 4 || continue
 
-plt = Plots.plot(;
-    xlabel = "ADAPT Iterations",
-    xscale = :log10,
-    xlims = [1, 200],
-    xticks = (xticks, map(string, xticks)),
-    ylabel = "Infidelity",
-    ylims = [1e-16, 1e2],
-    yscale = :log10,
-    yticks = 10.0 .^ (-16:2:2),
-    legend = :bottomright,
-)
+#     Plots.plot!(plt,
+#         curve[!,:numparams],
+#         1 .- curve[!,:q2];
+#         ribbon = (
+#             curve[!,:q3] .- curve[!,:q2],   # BOTTOM ERROR (backwards 'cause INfidelity)
+#             curve[!,:q2] .- curve[!,:q1],   # TOP ERROR (backwards 'cause INfidelity)
+#         ),
+#         get_args(key)...
+#     )
+# end
+# Plots.savefig(plt, "thermalstates/infidelityvsparameters.overlap.pdf")
 
-for (key, curve) in pairs(curves)
-    include_it(key) || continue
 
-    Plots.plot!(plt,
-        curve[!,:numparams],
-        1 .- curve[!,:q0];  # Worst-case infidelity from lowest-obtained fidelity.
-        get_args(key)...
-    )
-end
+# ##########################################################################################
+# #= PLOT SOME DATA: Full log plot sans ribbons. Plot max infidelity rather than median. =#
 
-Plots.savefig(plt, "thermalstates/infidelityvsparameters.log.pdf")
+# include_it(key) = all((
+#     key.enum_ψREF == "entangled",
+#     key.nV == key.nH,
+#     any((
+#         key.enum_method == "renyi",
+#         key.enum_method == "overlap",
+#         key.enum_method == "gibbs",
+#     )),
+#     key.nV ≤ 4,
+# ))
+
+# xticks = [1, 10, 100]
+# for (key, curve) in pairs(curves)
+#     include_it(key) || continue
+#     key.enum_method == "renyi" || continue
+#     push!(xticks, last(curve[!,:numparams]))
+# end
+
+# plt = Plots.plot(;
+#     xlabel = "ADAPT Iterations",
+#     xscale = :log10,
+#     xlims = [1, 200],
+#     xticks = (xticks, map(string, xticks)),
+#     ylabel = "Infidelity",
+#     ylims = [1e-16, 1e2],
+#     yscale = :log10,
+#     yticks = 10.0 .^ (-16:2:2),
+#     legend = :bottomright,
+# )
+
+# for (key, curve) in pairs(curves)
+#     include_it(key) || continue
+
+#     Plots.plot!(plt,
+#         curve[!,:numparams],
+#         1 .- curve[!,:q0];  # Worst-case infidelity from lowest-obtained fidelity.
+#         get_args(key)...
+#     )
+# end
+
+# Plots.savefig(plt, "thermalstates/infidelityvsparameters.log.pdf")
 
 
 ##########################################################################################
@@ -312,3 +312,98 @@ Plots.plot!(plt, [0], [-1]; color=:black, lw=3, ls=:dash, label="n=3")
 Plots.plot!(plt, [0], [-1]; color=:black, lw=3, ls=:solid, label="n=4")
 
 Plots.savefig(plt, "thermalstates/infidelityvsparameters.good.pdf")
+
+
+##########################################################################################
+#= PLOT SOME DATA: Same as above but playing with what gets color and style. =#
+
+include_it(key) = all((
+    key.enum_ψREF == "entangled",
+    key.nV == key.nH,
+    any((
+        key.enum_method == "renyi",
+        key.enum_method == "overlap",
+        key.enum_method == "gibbs",
+    )),
+    key.nV ≤ 4,
+))
+
+function get_args(key)
+    args = Dict{Symbol,Any}()
+
+    args[:linewidth] = 3
+
+    # args[:linestyle] = (
+    #     renyi = :solid,
+    #     overlap = :solid,
+    #     gibbs = :solid,
+    # )[Symbol(key.enum_method)]
+
+    # args[:shape] = (
+    #     renyi = :square,
+    #     overlap = :circle,
+    #     gibbs = :utriangle,
+    # )[Symbol(key.enum_method)]
+
+    args[:seriescolor] = (
+        renyi = 1,
+        overlap = 2,
+        gibbs = 3,
+    )[Symbol(key.enum_method)]
+
+    args[:linestyle] = [
+        :dot,
+        :dashdot,
+        :dash,
+        :solid,
+    ][key.nV]
+    args[:seriesalpha] = 0.8
+
+    args[:label] = all((
+        # key.enum_method == "renyi",
+        key.nV == 4,
+    )) ? (
+        renyi = "Renyi",
+        overlap = "Overlap",
+        gibbs = "Gibbs",
+    )[Symbol(key.enum_method)] : false
+
+    return args
+end
+
+xticks = [1, 10, 100]
+for (key, curve) in pairs(curves)
+    include_it(key) || continue
+    key.enum_method == "renyi" || continue
+    push!(xticks, last(curve[!,:numparams]))
+end
+
+plt = Plots.plot(;
+    xlabel = "ADAPT Iterations",
+    xscale = :log10,
+    xlims = [1, 220],
+    xticks = (xticks, map(string, xticks)),
+    ylabel = "Infidelity",
+    ylims = [1e-8, 1e0],
+    yscale = :log10,
+    yticks = 10.0 .^ (-16:2:2),
+    legend = :bottomright,
+)
+
+for (key, curve) in pairs(curves)
+    include_it(key) || continue
+
+    Plots.plot!(plt,
+        curve[!,:numparams],
+        1 .- curve[!,:q0];  # Worst-case infidelity from lowest-obtained fidelity.
+        get_args(key)...
+    )
+end
+
+# Dummy curves for linestyle.
+Plots.plot!(plt, [0], [-1]; color=:black, lw=3, ls=:dot, label="n=1")
+Plots.plot!(plt, [0], [-1]; color=:black, lw=3, ls=:dashdot, label="n=2")
+Plots.plot!(plt, [0], [-1]; color=:black, lw=3, ls=:dash, label="n=3")
+Plots.plot!(plt, [0], [-1]; color=:black, lw=3, ls=:solid, label="n=4")
+
+Plots.savefig(plt, "thermalstates/infidelityvsparameters.tighter.pdf")
