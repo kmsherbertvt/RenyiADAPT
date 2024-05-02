@@ -120,6 +120,7 @@ import ColorSchemes
 
 plt = Plots.plot(;
     xlabel = "BFGS Iterations",
+    xlims = [0,2020],
     ylabel = "Loss (Maximal Renyi Divergence)",
     ylims = [1e-16, 1e2],
     yscale = :log10,
@@ -190,7 +191,8 @@ Plots.savefig(plt, "thermalstates/optimization.renyi.pdf")
 
 plt = Plots.plot(;
     xlabel = "BFGS Iterations",
-    ylabel = "Loss (Infidelity)",
+    xlims = [0,2020],
+    ylabel = "Loss (Overlap)",
     ylims = [1e-16, 1e2],
     yscale = :log10,
     yticks = 10.0 .^ (-16:2:2),
@@ -225,11 +227,12 @@ Plots.savefig(plt, "thermalstates/optimization.overlap.pdf")
     
 plt = Plots.plot(;
     xlabel = "BFGS Iterations",
-    ylabel = "Loss Function - Min Loss Function",
+    xlims = [0,2020],
+    ylabel = "Loss Difference (ADAPT-VQE-Gibbs)",
     ylims = [1e-16, 1e2],
     yscale = :log10,
     yticks = 10.0 .^ (-16:2:2),
-    legend = :bottom,
+    legend = :topright,
 )
     
 color = 3
