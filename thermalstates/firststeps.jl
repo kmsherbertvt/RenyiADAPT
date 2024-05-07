@@ -6,6 +6,7 @@ import ADAPT
 import Serialization
 import Statistics
 import LinearAlgebra: norm, tr
+import CurveFit
 
 ##########################################################################################
 #= LOAD ALL DATA =#
@@ -290,5 +291,14 @@ for (key, curve) in pairs(curves)
         # ),
         get_args(key)...
     )
+
+    fit = CurveFit.curve_fit(CurveFit.ExpFit, 1.0 .* curve[!,:nV], curve[!,:q2])
+    a, b = fit.coefs
+    println(key, " ", "g = $(round(a, digits=3)) * exp($(round(b, digits=3)) n)")
+
+    # g = a exp(b n) -> n = 1/b log(g/a)
+    desired_g = 1e-5
+    n = 1 / b * log(desired_g / a)
+    println("Expected failure: n = $(round(n, digits=0))")
 end
 Plots.savefig(plt, "thermalstates/firststeps.range.pdf")
