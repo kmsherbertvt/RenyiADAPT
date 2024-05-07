@@ -241,7 +241,7 @@ for (key, curve) in pairs(pdf)
     include_it(key) || continue
 
     Plots.scatter!(plt,
-        curve[!,:fidelity],
+        curve[!,:fidelity].^2,
         curve[!,:G∞];
         get_args(key)...
     )

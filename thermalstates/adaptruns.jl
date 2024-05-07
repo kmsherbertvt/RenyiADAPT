@@ -36,14 +36,14 @@ end
 for nV in 1:4
     for nH in nV:nV
         for seed in 1:20
-            nV >= 4 && seed > 1 && continue            
+            nV >= 4 && seed > 1 && continue
             filename = "thermalstates/gibbsresults/csv/twolocal.entangled.twolocal.gibbs."*string(nV)*"."*string(nH)*"."*string(seed)*"."*string(seed)*".csv"
             Gibbs_csv = CSV.File(filename)
             append!(df, DataFrames.DataFrame(Gibbs_csv))
         end
     end
 end
-        
+
 ##########################################################################################
 #= PREPARE FOR PLOTTING =#
 
@@ -306,7 +306,7 @@ for (key, curve) in pairs(curves)
 
     Plots.plot!(plt,
         curve[!,:numparams],
-        1 .- curve[!,:q0];  # Worst-case infidelity from lowest-obtained fidelity.
+        1 .- curve[!,:q0].^2;  # Worst-case infidelity from lowest-obtained fidelity.
         get_args(key)...
     )
 end
@@ -407,7 +407,7 @@ for (key, curve) in pairs(curves)
 
     Plots.plot!(plt,
         curve[!,:numparams],
-        1 .- curve[!,:q0];  # Worst-case infidelity from lowest-obtained fidelity.
+        1 .- curve[!,:q0].^2;  # Worst-case infidelity from lowest-obtained fidelity.
         get_args(key)...
     )
 end
