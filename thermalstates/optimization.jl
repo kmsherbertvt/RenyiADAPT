@@ -90,9 +90,9 @@ ansatz_vO = Serialization.deserialize("thermalstates/vqe/ansatze/$name_O")
 trace_vO = Serialization.deserialize("thermalstates/vqe/traces/$name_O")
 
 #= LOAD Karunya's GIBBS-ADAPT DATA =#
-    
+
 import DelimitedFiles: readdlm
-    
+
 filename1 = "thermalstates/gibbsresults/loss/nV_"*string(nV)*"_nH_"*string(nH)*"_seed_"*string(seed_H)*"_ADAPT_loss.dat"
 filename2 = "thermalstates/gibbsresults/loss/nV_"*string(nV)*"_nH_"*string(nH)*"_seed_"*string(seed_H)*"_ADAPT_steps.dat"
 filename3 = "thermalstates/gibbsresults/loss/nV_"*string(nV)*"_nH_"*string(nH)*"_seed_"*string(seed_H)*"_VQE_loss.dat"
@@ -101,7 +101,7 @@ ADAPTloss_data = readdlm(filename1,Float64)
 ADAPTsteps_data = readdlm(filename2,Float64)
 VQEloss_data = readdlm(filename3,Float64)
 
-    
+
 ##########################################################################################
 #= PLOT THE TRACES!
 
@@ -119,7 +119,7 @@ import ColorSchemes
 # PLOT RENYI
 
 plt = Plots.plot(;
-    xlabel = "BFGS Iterations",
+    xlabel = "(Cumulative) Optimization Iterations",
     xlims = [0,2020],
     ylabel = "Loss (Maximal Renyi Divergence)",
     ylims = [1e-16, 1e2],
@@ -190,7 +190,7 @@ Plots.savefig(plt, "thermalstates/optimization.renyi.pdf")
 # PLOT OVERLAP
 
 plt = Plots.plot(;
-    xlabel = "BFGS Iterations",
+    xlabel = "(Cumulative) Optimization Iterations",
     xlims = [0,2020],
     ylabel = "Loss (Overlap)",
     ylims = [1e-16, 1e2],
@@ -221,12 +221,12 @@ Plots.plot!(plt,
 )
 
 Plots.savefig(plt, "thermalstates/optimization.overlap.pdf")
-    
-    
+
+
 # PLOT GIBBS
-    
+
 plt = Plots.plot(;
-    xlabel = "BFGS Iterations",
+    xlabel = "(Cumulative) Optimization Iterations",
     xlims = [0,2020],
     ylabel = "Loss Difference (ADAPT-VQE-Gibbs)",
     ylims = [1e-16, 1e2],
@@ -234,7 +234,7 @@ plt = Plots.plot(;
     yticks = 10.0 .^ (-16:2:2),
     legend = :topright,
 )
-    
+
 color = 3
 shape = :utriangle
 label = "Gibbs"
